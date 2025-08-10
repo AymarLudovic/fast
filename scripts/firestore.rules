@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Subscriptions: doc id must be the user's uid
+    match /subscriptions/{uid} {
+      // Create only own doc, with required fields and types
+      allow create: if isOwner(uid)
+        && request.resource.data.userId == uid
+        && request.resource.data.subscriptionType in ['trial', 'plan']
+        && request.resource.data.expirationAt is timestamp;
+
+      // Read only own doc
+      allow read: if isOwner(uid);
+
+      // Update only own doc, keep same validations
+      allow update: if isOwner(uid)
+        && request.resource.data.userId == uid
+        && request.resource.data.subscriptionType in ['trial', 'plan']
+        && request.resource.data.expirationAt is timestamp;
+
+      // Prevent deletes from clients
+      allow delete: if false;
+    }
+
+    // Discount codes: public read, write blocked
+    match /discount_codes/{code} {
+      allow read: if true;        // or replace with: isSignedIn();
+      allow write: if false;      // manage codes from server or Console only
+    }
+  }
+}

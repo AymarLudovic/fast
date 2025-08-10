@@ -1,0 +1,113 @@
+/>
+
+- In app/post-signup/page.tsx, replace the ensureTrial() implementation inside the useEffect with a getDocument-first approach. This avoids brittle queries and ensures we create the document if missing.
+
+Add/replace the ensureTrial function as follows (keep imports and component shell the same):
+
+  const ensureTrial = async () => {
+    try {
+      setStatus("creating")
+      setMessage("Setting up your 3-minute trial...")
+
+      const now = new Date()
+      const expirationDate = new Date(now.getTime() + 3 * 60 * 1000) // 3 minutes
+
+      let exists = true
+      let existingDoc: any = null
+      try {
+        existingDoc = await databases.getDocument(databaseId, subscriptionCollectionId, user!.id)
+      } catch (err: any) {
+        exists = false
+      }
+
+      if (!exists) {
+        await databases.createDocument(databaseId, subscriptionCollectionId, user!.id, {
+          userId: user!.id,
+          subscriptionType: "trial",
+          expirationDate: expirationDate.toISOString(),
+          createdAt: now.toISOString(),
+        })
+      } else {
+        const patch: Record<string, any> = {}
+        if (!existingDoc.subscriptionType) patch.subscriptionType = "trial"
+        if (!existingDoc.expirationDate) patch.expirationDate = expirationDate.toISOString()
+        if (Object.keys(patch).length) {
+          await databases.updateDocument(databaseId, subscriptionCollectionId, user!.id, patch)
+        }
+      }
+
+      setStatus("done")
+      setMessage("Trial ready. Redirecting...")
+      setTimeout(() => router.replace("/"), 800)
+    } catch (err) {
+      console.error("Failed to create trial subscription:", err)
+      setStatus("error")
+      setMessage("An error occurred while creating your trial. Redirecting to subscription page...")
+      setTimeout(() => router.replace("/subscription"), 1200)
+    }
+  }
+
+- In app/page.tsx, replace the fetchSubscription() function to use getDocument by doc ID and set validity accordingly:
+
+  const fetchSubscription = async (clerkUserId: string) => {
+    try {
+      setIsCheckingSubscription(true)
+      const doc = await databases.getDocument(databaseId, subscriptionCollectionId, clerkUserId)
+      setSubscriptionData(doc as any)
+      const valid = checkSubscriptionValidity(doc)
+      setIsSubscriptionValid(valid)
+    } catch (err) {
+      // Not found or no permission
+      setSubscriptionData(null)
+      setIsSubscriptionValid(false)
+    } finally {
+      setIsCheckingSubscription(false)
+    }
+  }
+
+- In app/page.tsx, add an auto-redirect effect after subscription state is known so signed-in users with invalid/expired trials are redirected to /subscription immediately:
+
+  useEffect(() => {
+    if (!isClerkLoaded) return
+    if (isSignedIn && !isCheckingSubscription && !isSubscriptionValid) {
+      router.replace("/subscription")
+    }
+  }, [isClerkLoaded, isSignedIn, isCheckingSubscription, isSubscriptionValid, router])
+
+- In app/subscription/page.tsx, replace the fetchSubscription() function to also use getDocument by doc ID, and keep the existing validation logic:
+
+  const fetchSubscription = async (clerkUserId: string) => {
+    try {
+      const doc = await databases.getDocument("boodupy-3000", "subscription-300", clerkUserId)
+      setSubscription(doc)
+      checkSubscriptionValidity(doc)
+    } catch (error) {
+      console.error("Erreur lors de la récupération de l'abonnement :", error)
+      setError("Erreur lors du chargement de l'abonnement.")
+      setSubscription(null)
+      setIsSubscriptionValid(false)
+    }
+  }
+
+- In app/subscription/page.tsx, ensure updateSubscription uses the same database and collection IDs consistently (already corrected earlier). Keep:
+
+  await databases.updateDocument(databaseId, "subscription-300", subscription.$id, updateData)
+
+</CodeProject>
+
+Ça devrait corriger le souci immédiat et lier proprement les pages:
+- /signup → /post-signup crée un abonnement trial 3 minutes (docId = Clerk userId).
+- / redirige automatiquement vers /subscription si l’essai est expiré/invalide.
+- /subscription prolonge l’abonnement de 30 jours après paiement PayPal.
+
+Si la création du document échoue toujours, c’est très probablement un problème de permissions Appwrite côté collection:
+- Assure-toi que la collection subscription-300 autorise la création de documents depuis le client (ou dis-moi d’utiliser une route serveur sécurisée avec APPWRITE_API_KEY pour créer le trial côté serveur).
+- On peut aussi ajouter un contrôle visuel (toast) pour afficher l’erreur détaillée.
+
+Actions:
+<Actions>
+  <Action name="Move trial creation to server" description="Créer le trial via une Route Handler sécurisée avec APPWRITE_API_KEY" />
+  <Action name="Add toast notifications" description="Afficher des toasts pour les redirections et erreurs Appwrite" />
+  <Action name="Harden permission checks" description="Vérifier et configurer les permissions Appwrite de la collection subscription-300" />
+  <Action name="Configure webhooks" description="Relier PayPal ou Appwrite webhooks pour tenir l’abonnement à jour automatiquement" />
+</Actions>
