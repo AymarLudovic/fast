@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation"
 import { onAuthStateChanged } from "firebase/auth"
 import { auth } from "@/lib/firebase-client"
 
-// Initialize Appwrite (as in your original working file)
+// Appwrite client kept for discount lookup only
 const client = new Client().setEndpoint("https://fra.cloud.appwrite.io/v1").setProject("68802a5d00297352e520")
 const databases = new Databases(client)
 
@@ -27,11 +27,9 @@ export default function SubscriptionPage() {
 
   const router = useRouter()
 
-  // Appwrite constants (kept exactly as in the provided file)
   const databaseId = "boodupy-3000"
   const discountCouponCollectionId = "discounts-300"
 
-  // Subscription helpers
   const checkSubscriptionValidity = (subscriptionData: any) => {
     if (subscriptionData && subscriptionData.expirationDate) {
       const expirationDate = new Date(subscriptionData.expirationDate)
@@ -50,33 +48,33 @@ export default function SubscriptionPage() {
     }
   }
 
-  const fetchSubscription = async (uid: string) => {
+  const refresh = async () => {
     try {
-      const response = await databases.listDocuments("boodupy-3000", "subscription-300", [
-        Query.equal("userId", uid),
-        Query.equal("$id", uid),
-      ])
-      if (response.documents.length > 0) {
-        const subscriptionData = response.documents[0]
-        setSubscription(subscriptionData)
-        checkSubscriptionValidity(subscriptionData)
-      } else {
-        setSubscription(null)
-        setIsSubscriptionValid(false)
+      const u = auth.currentUser
+      if (!u) return
+      const token = await u.getIdToken()
+      const res = await fetch("/api/appwrite/subscriptions/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const j = await res.json()
+      if (!res.ok) {
+        throw new Error(j?.error || "Failed to load subscription")
       }
-    } catch (error) {
-      console.error("Erreur lors de la récupération de l'abonnement :", error)
-      setError("Erreur lors du chargement de l'abonnement.")
+      const sub = j?.subscription || null
+      setSubscription(sub)
+      checkSubscriptionValidity(sub)
+    } catch (e) {
       setSubscription(null)
       setIsSubscriptionValid(false)
+      setTimeRemaining(0)
     }
   }
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
       if (user?.uid) {
         setCurrentUid(user.uid)
-        fetchSubscription(user.uid)
+        await refresh()
       } else {
         router.push("/signup")
       }
@@ -119,7 +117,9 @@ export default function SubscriptionPage() {
           setDiscountedPrice(Math.max(0.01, newPrice))
           setAppliedDiscountInfo(promo)
           setDiscountMessage(
-            `Discount "${promo.code}" applied ! Reduction of ${reductionPercentage}%. New price : $${newPrice.toFixed(2)}`,
+            `Discount "${promo.code}" applied ! Reduction of ${reductionPercentage}%. New price : $${newPrice.toFixed(
+              2,
+            )}`,
           )
         }
       } else {
@@ -135,26 +135,24 @@ export default function SubscriptionPage() {
     }
   }
 
-  const updateSubscription = async (uid: string) => {
-    if (!subscription || !subscription.$id) {
-      console.error("ID d'abonnement manquant.")
-      setError("Erreur: ID d'abonnement manquant pour la mise à jour.")
-      return
-    }
+  const activatePaid = async () => {
     try {
-      const newExpirationDate = new Date()
-      newExpirationDate.setDate(newExpirationDate.getDate() + 30)
-      const updateData = { subscriptionType: "plan", expirationDate: newExpirationDate.toISOString() }
-      // Kept as in your original file (different database/collection for update):
-      await databases.updateDocument("Boodupy-database-2025", "subscriptions-200900", subscription.$id, updateData)
-      fetchSubscription(uid)
-    } catch (error) {
-      console.error("Erreur lors de la mise à jour de l'abonnement dans Appwrite :", error)
-      setError("Erreur lors de la mise à jour de l'abonnement.")
+      const u = auth.currentUser
+      if (!u) return
+      const token = await u.getIdToken()
+      const res = await fetch("/api/appwrite/subscriptions/activate", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const j = await res.json()
+      if (!res.ok) throw new Error(j?.error || "Activation failed")
+      await refresh()
+    } catch (err) {
+      console.error("Erreur lors de l’activation de l’abonnement:", err)
+      setError("Erreur lors de l’activation de l’abonnement.")
     }
   }
 
-  // UI
   const timeLeftString =
     timeRemaining !== null ? formatDistanceToNow(new Date(Date.now() + timeRemaining), { addSuffix: true }) : ""
 
@@ -227,7 +225,7 @@ export default function SubscriptionPage() {
                       const details = await actions.order?.capture()
                       if (details && currentUid) {
                         alert("Transaction completed by " + (details.payer?.name?.given_name || "user"))
-                        await updateSubscription(currentUid)
+                        await activatePaid()
                       } else {
                         setError("La transaction PayPal a échoué.")
                       }

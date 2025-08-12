@@ -5,15 +5,6 @@ import { useState } from "react"
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth"
 import { useRouter } from "next/navigation"
 import { auth } from "@/lib/firebase-client"
-import { Client, Databases } from "appwrite"
-
-// Appwrite client initialized exactly like the subscription page
-const appwriteClient = new Client().setEndpoint("https://fra.cloud.appwrite.io/v1").setProject("68802a5d00297352e520")
-const appwriteDB = new Databases(appwriteClient)
-
-// Match IDs and attributes used by the subscription page
-const APPWRITE_DB_ID = "boodupy-3000"
-const APPWRITE_SUBS_COLLECTION_ID = "subscription-300"
 
 export default function SignupPage() {
   const [email, setEmail] = useState<string>("")
@@ -35,19 +26,16 @@ export default function SignupPage() {
       } else {
         userCredential = await createUserWithEmailAndPassword(auth, email, password)
 
-        // Create 3-minute trial subscription in Appwrite using the same IDs and attributes as subscription page
-        const uid = userCredential.user.uid
-        const now = new Date()
-        const expiration = new Date(now.getTime() + 3 * 60 * 1000) // 3 minutes
+        // Create 3-minute trial subscription via secure server route (uses Appwrite admin)
         try {
-          await appwriteDB.createDocument(APPWRITE_DB_ID, APPWRITE_SUBS_COLLECTION_ID, uid, {
-            userId: uid,
-            subscriptionType: "trial",
-            expirationDate: expiration.toISOString(),
+          const token = await userCredential.user.getIdToken()
+          await fetch("/api/appwrite/subscriptions/trial", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
           })
         } catch (err) {
-          // Non-blocking: if document already exists or permissions prevent creation, continue
-          console.warn("Appwrite trial creation warning:", err)
+          // Non-blocking, we proceed to app; subscription page will handle missing trial gracefully
+          console.warn("Trial creation failed (non-blocking):", err)
         }
       }
 
@@ -55,7 +43,7 @@ export default function SignupPage() {
       localStorage.setItem("userId", userId)
       router.push("/")
     } catch (err: any) {
-      setError(err.message)
+      setError(err?.message || "Authentication failed")
     }
   }
 
