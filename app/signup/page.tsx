@@ -53,7 +53,6 @@ export default function SignupPage() {
         userCredential = await signInWithEmailAndPassword(auth, email, password)
         const userId = userCredential.user.uid
         localStorage.setItem("userId", userId)
-        router.push("/")
       } else {
         userCredential = await createUserWithEmailAndPassword(auth, email, password)
         const userId = userCredential.user.uid
@@ -271,6 +270,17 @@ ${errorDetails.fullError}`
           </form>
         )}
         {resetMessage && <p className="text-green-600 text-center mt-4">{resetMessage}</p>}
+        {isLoginMode && (
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={() => router.push("/")}
+              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              Go to Home
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
