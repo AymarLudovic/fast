@@ -5,6 +5,7 @@ import { useState } from "react"
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth"
 import { useRouter } from "next/navigation"
 import { auth } from "@/lib/firebase-client"
+import { Client, Databases, ID } from "appwrite"
 
 export default function SignupPage() {
   const [email, setEmail] = useState<string>("")
@@ -26,13 +27,28 @@ export default function SignupPage() {
       } else {
         userCredential = await createUserWithEmailAndPassword(auth, email, password)
 
-        // Create 3-minute trial subscription via secure server route (uses Appwrite admin)
         try {
-          const token = await userCredential.user.getIdToken()
-          await fetch("/api/appwrite/subscriptions/trial", {
-            method: "POST",
-            headers: { Authorization: `Bearer ${token}` },
+          const client = new Client().setEndpoint("https://fra.cloud.appwrite.io/v1").setProject("68802a5d00297352e520")
+
+          const databases = new Databases(client)
+
+          const expirationDate = new Date()
+          expirationDate.setMinutes(expirationDate.getMinutes() + 3)
+
+          const promise = databases.createDocument("boodupy-3000", "subscription-300", ID.unique(), {
+            userId: userCredential.user.uid,
+            subscriptionType: "trial",
+            expirationDate: expirationDate.toISOString(),
           })
+
+          promise.then(
+            (response) => {
+              console.log("Trial subscription created:", response)
+            },
+            (error) => {
+              console.warn("Trial creation failed (non-blocking):", error)
+            },
+          )
         } catch (err) {
           // Non-blocking, we proceed to app; subscription page will handle missing trial gracefully
           console.warn("Trial creation failed (non-blocking):", err)
