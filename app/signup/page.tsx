@@ -1,283 +1,183 @@
 "use client"
 
 import type React from "react"
+
 import { useState } from "react"
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth"
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth"
 import { useRouter } from "next/navigation"
 import { auth } from "@/lib/firebase-client"
 import { Client, Databases } from "appwrite"
 
-const client = new Client().setEndpoint("https://fra.cloud.appwrite.io/v1").setProject("68802a5d00297352e520")
-
-const databases = new Databases(client)
-
 export default function SignupPage() {
-  const [email, setEmail] = useState<string>("")
-  const [password, setPassword] = useState<string>("")
-  const [error, setError] = useState<string>("")
-  const [isLoginMode, setIsLoginMode] = useState<boolean>(false)
-  const [isForgotPasswordMode, setIsForgotPasswordMode] = useState<boolean>(false)
-  const [resetMessage, setResetMessage] = useState<string>("")
-  const [subscriptionError, setSubscriptionError] = useState<string>("")
-  const [isCreatingSubscription, setIsCreatingSubscription] = useState<boolean>(false)
-  const [subscriptionSuccess, setSubscriptionSuccess] = useState<boolean>(false)
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [isLogin, setIsLogin] = useState(false)
+  const [logs, setLogs] = useState<string[]>([])
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [showSuccess, setShowSuccess] = useState(false)
   const router = useRouter()
 
-  const copyErrorToClipboard = async () => {
+  const addLog = (message: string) => {
+    const timestamp = new Date().toLocaleTimeString()
+    const logMessage = `[${timestamp}] ${message}`
+    setLogs((prev) => [...prev, logMessage])
+    console.log(logMessage)
+  }
+
+  const copyLogs = async () => {
+    const allLogs = logs.join("\n")
     try {
-      await navigator.clipboard.writeText(subscriptionError)
-      alert("Error details copied to clipboard!")
+      await navigator.clipboard.writeText(allLogs)
+      alert("Logs copiés!")
     } catch (err) {
-      console.error("Failed to copy to clipboard:", err)
-      // Fallback for older browsers
-      const textArea = document.createElement("textarea")
-      textArea.value = subscriptionError
-      document.body.appendChild(textArea)
-      textArea.select()
-      document.execCommand("copy")
-      document.body.removeChild(textArea)
-      alert("Error details copied to clipboard!")
+      console.error("Erreur copie:", err)
     }
   }
 
-  const handleAuth = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
-    setResetMessage("")
-    setSubscriptionError("")
-    setSubscriptionSuccess(false)
+    setIsProcessing(true)
+    setLogs([])
+    setShowSuccess(false)
 
     try {
+      addLog(`🚀 Début ${isLogin ? "connexion" : "inscription"}`)
+      addLog(`📧 Email: ${email}`)
+
+      // Firebase Auth
+      addLog("🔥 Tentative authentification Firebase...")
       let userCredential
-      if (isLoginMode) {
+
+      if (isLogin) {
         userCredential = await signInWithEmailAndPassword(auth, email, password)
-        const userId = userCredential.user.uid
-        localStorage.setItem("userId", userId)
+        addLog("✅ Connexion Firebase réussie!")
+        addLog(`👤 User ID: ${userCredential.user.uid}`)
+        setShowSuccess(true)
       } else {
         userCredential = await createUserWithEmailAndPassword(auth, email, password)
-        const userId = userCredential.user.uid
-        localStorage.setItem("userId", userId)
+        addLog("✅ Inscription Firebase réussie!")
+        addLog(`👤 User ID: ${userCredential.user.uid}`)
 
-        setIsCreatingSubscription(true)
-        try {
-          const expirationDate = new Date()
-          expirationDate.setMinutes(expirationDate.getMinutes() + 3)
+        // Appwrite Subscription
+        addLog("📝 Configuration Appwrite...")
+        const client = new Client().setEndpoint("https://fra.cloud.appwrite.io/v1").setProject("68802a5d00297352e520")
 
-          const response = await databases.createDocument("boodupy-3000", "subscription-300", userCredential.user.uid, {
-            userId: userCredential.user.uid,
-            subscriptionType: "trial",
-            expirationDate: expirationDate.toISOString(),
-          })
+        const databases = new Databases(client)
+        addLog("✅ Client Appwrite configuré")
 
-          console.log("Trial subscription created:", response)
-          setSubscriptionSuccess(true)
-          setIsCreatingSubscription(false)
+        addLog("⏰ Création date expiration (3 minutes)...")
+        const expirationDate = new Date()
+        expirationDate.setMinutes(expirationDate.getMinutes() + 3)
+        addLog(`📅 Expiration: ${expirationDate.toISOString()}`)
 
-          setTimeout(() => {
-            router.push("/")
-          }, 1500)
-        } catch (subscriptionErr: any) {
-          setIsCreatingSubscription(false)
-          const errorDetails = {
-            message: subscriptionErr?.message || "Unknown error",
-            code: subscriptionErr?.code || "No code",
-            type: subscriptionErr?.type || "No type",
-            response: subscriptionErr?.response || "No response",
-            stack: subscriptionErr?.stack || "No stack trace",
-            fullError: JSON.stringify(subscriptionErr, null, 2),
-          }
-
-          const formattedError = `Subscription Creation Error:
-Message: ${errorDetails.message}
-Code: ${errorDetails.code}
-Type: ${errorDetails.type}
-Response: ${typeof errorDetails.response === "object" ? JSON.stringify(errorDetails.response, null, 2) : errorDetails.response}
-Stack: ${errorDetails.stack}
-
-Full Error Object:
-${errorDetails.fullError}`
-
-          setSubscriptionError(formattedError)
-          console.error("Detailed subscription error:", errorDetails)
+        const documentData = {
+          userId: userCredential.user.uid,
+          subscriptionType: "trial",
+          expirationDate: expirationDate.toISOString(),
         }
+        addLog(`📄 Données document: ${JSON.stringify(documentData, null, 2)}`)
+
+        addLog("🔄 Création document Appwrite...")
+        addLog("🗂️ Database: boodupy-3000")
+        addLog("📁 Collection: subscription-300")
+        addLog(`🆔 Document ID: ${userCredential.user.uid}`)
+
+        const response = await databases.createDocument(
+          "boodupy-3000",
+          "subscription-300",
+          userCredential.user.uid,
+          documentData,
+        )
+
+        addLog("🎉 SUCCÈS! Document créé dans Appwrite")
+        addLog(`📋 Réponse: ${JSON.stringify(response, null, 2)}`)
+        setShowSuccess(true)
       }
-    } catch (err: any) {
-      setError(err?.message || "Authentication failed")
+    } catch (error: any) {
+      addLog("❌ ERREUR DÉTECTÉE!")
+      addLog(`🔍 Type erreur: ${error.constructor.name}`)
+      addLog(`💬 Message: ${error.message}`)
+      addLog(`🔢 Code: ${error.code || "Aucun code"}`)
+      addLog(`📊 Status: ${error.status || "Aucun status"}`)
+      addLog(`🌐 Response: ${JSON.stringify(error.response || {}, null, 2)}`)
+      addLog(`📚 Stack: ${error.stack || "Aucune stack"}`)
+      addLog(`🔧 Objet complet: ${JSON.stringify(error, null, 2)}`)
+    } finally {
+      setIsProcessing(false)
     }
-  }
-
-  const handlePasswordReset = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setError("")
-    setResetMessage("")
-    if (!email) {
-      setError("Please enter your email address.")
-      return
-    }
-    try {
-      await sendPasswordResetEmail(auth, email)
-      setResetMessage("Password reset email sent. Check your inbox (and spam folder).")
-    } catch (err: any) {
-      if (err.code === "auth/user-not-found") {
-        setError("No user found with this email address.")
-      } else if (err.code === "auth/invalid-email") {
-        setError("The email address is not valid.")
-      } else {
-        setError("Error sending reset email: " + err.message)
-      }
-    }
-  }
-
-  const toggleMode = () => {
-    setIsLoginMode(!isLoginMode)
-    setIsForgotPasswordMode(false)
-    setError("")
-    setResetMessage("")
-  }
-
-  const activateForgotPasswordMode = () => {
-    setIsForgotPasswordMode(true)
-    setError("")
-    setResetMessage("")
-    setPassword("")
-  }
-
-  const deactivateForgotPasswordMode = () => {
-    setIsForgotPasswordMode(false)
-    setError("")
-    setResetMessage("")
   }
 
   return (
-    <div
-      className="flex flex-col items-center justify-center min-h-screen bg-gray-100"
-      style={{ fontFamily: "sans-serif" }}
-    >
-      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-        <h2 className="text-2xl font-bold mb-6 text-center">
-          {isForgotPasswordMode ? "Reset Password" : isLoginMode ? "Login" : "Sign Up"}
-        </h2>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6">
+        <h1 className="text-2xl font-bold text-center mb-6">{isLogin ? "Connexion" : "Inscription"}</h1>
 
-        {!isLoginMode && !isForgotPasswordMode && (
-          <>
-            {isCreatingSubscription && (
-              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                <p className="text-blue-700 text-sm">Creating your trial subscription...</p>
-              </div>
-            )}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            />
+          </div>
 
-            {subscriptionSuccess && (
-              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
-                <p className="text-green-700 text-sm">✓ Trial subscription created successfully! Redirecting...</p>
-              </div>
-            )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            />
+          </div>
 
-            {subscriptionError && (
-              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
-                <h3 className="text-red-800 font-semibold mb-2">Subscription Creation Failed</h3>
-                <div className="max-h-40 overflow-y-auto mb-3">
-                  <pre className="text-xs text-red-700 whitespace-pre-wrap break-words">{subscriptionError}</pre>
+          <button
+            type="submit"
+            disabled={isProcessing}
+            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isProcessing ? "Traitement..." : isLogin ? "Se connecter" : "S'inscrire"}
+          </button>
+        </form>
+
+        <button
+          type="button"
+          onClick={() => setIsLogin(!isLogin)}
+          className="w-full mt-4 text-blue-600 hover:underline"
+        >
+          {isLogin ? "Créer un compte" : "Déjà un compte ?"}
+        </button>
+
+        {logs.length > 0 && (
+          <div className="mt-6 p-4 bg-gray-100 rounded-md">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="font-semibold">Logs détaillés:</h3>
+              <button onClick={copyLogs} className="bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700">
+                Copier
+              </button>
+            </div>
+            <div className="max-h-60 overflow-y-auto bg-white p-3 rounded border">
+              {logs.map((log, index) => (
+                <div key={index} className="text-sm font-mono mb-1">
+                  {log}
                 </div>
-                <button
-                  onClick={copyErrorToClipboard}
-                  className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-                >
-                  Copy Error Details
-                </button>
-              </div>
-            )}
-          </>
+              ))}
+            </div>
+          </div>
         )}
 
-        {isForgotPasswordMode ? (
-          <form onSubmit={handlePasswordReset} className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email
-              </label>
-              <input
-                type="email"
-                id="email"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
+        {showSuccess && (
+          <div className="mt-4 p-4 bg-green-100 border border-green-300 rounded-md">
+            <p className="text-green-800 font-semibold">✅ Processus terminé avec succès!</p>
             <button
-              type="submit"
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            >
-              Send Reset Email
-            </button>
-            <button
-              type="button"
-              onClick={deactivateForgotPasswordMode}
-              className="w-full mt-2 text-blue-600 hover:underline"
-            >
-              Back to {isLoginMode ? "Login" : "Sign Up"}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={handleAuth} className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email
-              </label>
-              <input
-                type="email"
-                id="email"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
-              <input
-                type="password"
-                id="password"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-
-            {error && <p className="text-red-500 text-sm">{error}</p>}
-
-            <button
-              type="submit"
-              disabled={isCreatingSubscription}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isCreatingSubscription ? "Creating Account..." : isLoginMode ? "Login" : "Sign Up"}
-            </button>
-
-            <button type="button" onClick={toggleMode} className="w-full mt-2 text-blue-600 hover:underline">
-              {isLoginMode ? "Need an account? Sign Up" : "Already have an account? Login"}
-            </button>
-            <button
-              type="button"
-              onClick={activateForgotPasswordMode}
-              className="w-full mt-2 text-sm text-gray-600 hover:underline"
-            >
-              Forgot Password?
-            </button>
-          </form>
-        )}
-        {resetMessage && <p className="text-green-600 text-center mt-4">{resetMessage}</p>}
-        {isLoginMode && (
-          <div className="mt-4">
-            <button
-              type="button"
               onClick={() => router.push("/")}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              className="mt-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
             >
-              Go to Home
+              Aller à l'accueil
             </button>
           </div>
         )}

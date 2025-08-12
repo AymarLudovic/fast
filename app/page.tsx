@@ -603,7 +603,7 @@ export default function SiteInspector() {
     }
   }
 
-  const redirectToAuth = () => router.push("/auth")
+  const redirectToAuth = () => router.push("/signup")
 
   const handleAnalyzeClick = async () => {
     if (!user) return redirectToAuth()
@@ -876,7 +876,7 @@ ${result.fullHTML}
     }
     return (
       <a
-        href="/auth"
+        href="/signup"
         className="h-[32px] w-auto px-5 text-sm flex items-center justify-center rounded-[13px] bg-black text-white font-semibold transition-opacity hover:opacity-90"
       >
         Sign up
@@ -884,10 +884,10 @@ ${result.fullHTML}
     )
   }
 
-  const inputPlaceholder = !user ? "Sign in to analyze (you'll be redirected)" : "https://example.com"
+  const inputPlaceholder = !user ? "Sign up to analyze (you'll be redirected)" : "https://example.com"
 
   const onInputFocus = () => {
-    if (!user) router.push("/auth")
+    if (!user) router.push("/signup")
   }
 
   return (
@@ -958,6 +958,7 @@ ${result.fullHTML}
                   src={
                     proposalUrlImages[pUrl] ||
                     " /placeholder.svg?height=16&width=16&query=proposal%20preview%20thumbnail" ||
+                    "/placeholder.svg" ||
                     "/placeholder.svg"
                   }
                   alt={`${pUrl} preview`}
