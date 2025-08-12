@@ -18,45 +18,90 @@ export default function SignupPage() {
   const [isLoginMode, setIsLoginMode] = useState<boolean>(false)
   const [isForgotPasswordMode, setIsForgotPasswordMode] = useState<boolean>(false)
   const [resetMessage, setResetMessage] = useState<string>("")
+  const [subscriptionError, setSubscriptionError] = useState<string>("")
+  const [isCreatingSubscription, setIsCreatingSubscription] = useState<boolean>(false)
+  const [subscriptionSuccess, setSubscriptionSuccess] = useState<boolean>(false)
   const router = useRouter()
+
+  const copyErrorToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(subscriptionError)
+      alert("Error details copied to clipboard!")
+    } catch (err) {
+      console.error("Failed to copy to clipboard:", err)
+      // Fallback for older browsers
+      const textArea = document.createElement("textarea")
+      textArea.value = subscriptionError
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand("copy")
+      document.body.removeChild(textArea)
+      alert("Error details copied to clipboard!")
+    }
+  }
 
   const handleAuth = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError("")
     setResetMessage("")
+    setSubscriptionError("")
+    setSubscriptionSuccess(false)
+
     try {
       let userCredential
       if (isLoginMode) {
         userCredential = await signInWithEmailAndPassword(auth, email, password)
+        const userId = userCredential.user.uid
+        localStorage.setItem("userId", userId)
+        router.push("/")
       } else {
         userCredential = await createUserWithEmailAndPassword(auth, email, password)
+        const userId = userCredential.user.uid
+        localStorage.setItem("userId", userId)
 
+        setIsCreatingSubscription(true)
         try {
           const expirationDate = new Date()
           expirationDate.setMinutes(expirationDate.getMinutes() + 3)
 
-          const promise = databases.createDocument("boodupy-3000", "subscription-300", userCredential.user.uid, {
+          const response = await databases.createDocument("boodupy-3000", "subscription-300", userCredential.user.uid, {
             userId: userCredential.user.uid,
             subscriptionType: "trial",
             expirationDate: expirationDate.toISOString(),
           })
 
-          promise.then(
-            (response) => {
-              console.log("Trial subscription created:", response)
-            },
-            (error) => {
-              console.warn("Trial creation failed (non-blocking):", error)
-            },
-          )
-        } catch (err) {
-          console.warn("Trial creation failed (non-blocking):", err)
+          console.log("Trial subscription created:", response)
+          setSubscriptionSuccess(true)
+          setIsCreatingSubscription(false)
+
+          setTimeout(() => {
+            router.push("/")
+          }, 1500)
+        } catch (subscriptionErr: any) {
+          setIsCreatingSubscription(false)
+          const errorDetails = {
+            message: subscriptionErr?.message || "Unknown error",
+            code: subscriptionErr?.code || "No code",
+            type: subscriptionErr?.type || "No type",
+            response: subscriptionErr?.response || "No response",
+            stack: subscriptionErr?.stack || "No stack trace",
+            fullError: JSON.stringify(subscriptionErr, null, 2),
+          }
+
+          const formattedError = `Subscription Creation Error:
+Message: ${errorDetails.message}
+Code: ${errorDetails.code}
+Type: ${errorDetails.type}
+Response: ${typeof errorDetails.response === "object" ? JSON.stringify(errorDetails.response, null, 2) : errorDetails.response}
+Stack: ${errorDetails.stack}
+
+Full Error Object:
+${errorDetails.fullError}`
+
+          setSubscriptionError(formattedError)
+          console.error("Detailed subscription error:", errorDetails)
         }
       }
-
-      const userId = userCredential.user.uid
-      localStorage.setItem("userId", userId)
-      router.push("/")
     } catch (err: any) {
       setError(err?.message || "Authentication failed")
     }
@@ -113,6 +158,37 @@ export default function SignupPage() {
         <h2 className="text-2xl font-bold mb-6 text-center">
           {isForgotPasswordMode ? "Reset Password" : isLoginMode ? "Login" : "Sign Up"}
         </h2>
+
+        {!isLoginMode && !isForgotPasswordMode && (
+          <>
+            {isCreatingSubscription && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <p className="text-blue-700 text-sm">Creating your trial subscription...</p>
+              </div>
+            )}
+
+            {subscriptionSuccess && (
+              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                <p className="text-green-700 text-sm">✓ Trial subscription created successfully! Redirecting...</p>
+              </div>
+            )}
+
+            {subscriptionError && (
+              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+                <h3 className="text-red-800 font-semibold mb-2">Subscription Creation Failed</h3>
+                <div className="max-h-40 overflow-y-auto mb-3">
+                  <pre className="text-xs text-red-700 whitespace-pre-wrap break-words">{subscriptionError}</pre>
+                </div>
+                <button
+                  onClick={copyErrorToClipboard}
+                  className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                >
+                  Copy Error Details
+                </button>
+              </div>
+            )}
+          </>
+        )}
 
         {isForgotPasswordMode ? (
           <form onSubmit={handlePasswordReset} className="space-y-4">
@@ -176,9 +252,10 @@ export default function SignupPage() {
 
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              disabled={isCreatingSubscription}
+              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoginMode ? "Login" : "Sign Up"}
+              {isCreatingSubscription ? "Creating Account..." : isLoginMode ? "Login" : "Sign Up"}
             </button>
 
             <button type="button" onClick={toggleMode} className="w-full mt-2 text-blue-600 hover:underline">
