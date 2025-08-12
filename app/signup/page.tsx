@@ -5,7 +5,11 @@ import { useState } from "react"
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth"
 import { useRouter } from "next/navigation"
 import { auth } from "@/lib/firebase-client"
-import { Client, Databases, ID } from "appwrite"
+import { Client, Databases } from "appwrite"
+
+const client = new Client().setEndpoint("https://fra.cloud.appwrite.io/v1").setProject("68802a5d00297352e520")
+
+const databases = new Databases(client)
 
 export default function SignupPage() {
   const [email, setEmail] = useState<string>("")
@@ -28,14 +32,10 @@ export default function SignupPage() {
         userCredential = await createUserWithEmailAndPassword(auth, email, password)
 
         try {
-          const client = new Client().setEndpoint("https://fra.cloud.appwrite.io/v1").setProject("68802a5d00297352e520")
-
-          const databases = new Databases(client)
-
           const expirationDate = new Date()
           expirationDate.setMinutes(expirationDate.getMinutes() + 3)
 
-          const promise = databases.createDocument("boodupy-3000", "subscription-300", ID.unique(), {
+          const promise = databases.createDocument("boodupy-3000", "subscription-300", userCredential.user.uid, {
             userId: userCredential.user.uid,
             subscriptionType: "trial",
             expirationDate: expirationDate.toISOString(),
@@ -50,7 +50,6 @@ export default function SignupPage() {
             },
           )
         } catch (err) {
-          // Non-blocking, we proceed to app; subscription page will handle missing trial gracefully
           console.warn("Trial creation failed (non-blocking):", err)
         }
       }

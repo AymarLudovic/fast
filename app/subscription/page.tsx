@@ -2,15 +2,15 @@
 
 import { useEffect, useState } from "react"
 import { Globe, Sparkles } from "lucide-react"
-import { Client, Databases, Query } from "appwrite"
+import { Client, Databases } from "appwrite"
 import { formatDistanceToNow } from "date-fns"
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js"
 import { useRouter } from "next/navigation"
 import { onAuthStateChanged } from "firebase/auth"
 import { auth } from "@/lib/firebase-client"
 
-// Appwrite client kept for discount lookup only
 const client = new Client().setEndpoint("https://fra.cloud.appwrite.io/v1").setProject("68802a5d00297352e520")
+
 const databases = new Databases(client)
 
 export default function SubscriptionPage() {
@@ -26,9 +26,6 @@ export default function SubscriptionPage() {
   const [currentUid, setCurrentUid] = useState<string | null>(null)
 
   const router = useRouter()
-
-  const databaseId = "boodupy-3000"
-  const discountCouponCollectionId = "discounts-300"
 
   const checkSubscriptionValidity = (subscriptionData: any) => {
     if (subscriptionData && subscriptionData.expirationDate) {
@@ -52,18 +49,23 @@ export default function SubscriptionPage() {
     try {
       const u = auth.currentUser
       if (!u) return
-      const token = await u.getIdToken()
-      const res = await fetch("/api/appwrite/subscriptions/me", {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      const j = await res.json()
-      if (!res.ok) {
-        throw new Error(j?.error || "Failed to load subscription")
-      }
-      const sub = j?.subscription || null
-      setSubscription(sub)
-      checkSubscriptionValidity(sub)
+
+      const promise = databases.getDocument("boodupy-3000", "subscription-300", u.uid)
+
+      promise.then(
+        (response) => {
+          setSubscription(response)
+          checkSubscriptionValidity(response)
+        },
+        (error) => {
+          console.error("Error fetching subscription:", error)
+          setSubscription(null)
+          setIsSubscriptionValid(false)
+          setTimeRemaining(0)
+        },
+      )
     } catch (e) {
+      console.error("Error fetching subscription:", e)
       setSubscription(null)
       setIsSubscriptionValid(false)
       setTimeRemaining(0)
@@ -94,39 +96,50 @@ export default function SubscriptionPage() {
     }
     setDiscountMessage("Checking discount validity...")
     try {
-      const response = await databases.listDocuments(databaseId, discountCouponCollectionId, [
-        Query.equal("code", discountCode.trim().toUpperCase()),
-      ])
-      if (response.documents.length > 0) {
-        const promo = response.documents[0]
-        const expirationDate = new Date(promo.Expiration)
-        const now = new Date()
-        if (expirationDate < now) {
-          setDiscountMessage("Ce code de réduction a expiré.")
-          setDiscountedPrice(ORIGINAL_PRICE)
-          setAppliedDiscountInfo(null)
-        } else {
-          const reductionPercentage = Number.parseFloat(promo.reduce)
-          if (isNaN(reductionPercentage) || reductionPercentage <= 0 || reductionPercentage > 100) {
-            setDiscountMessage("Code de réduction invalide (valeur de réduction incorrecte).")
+      const promise = databases.listDocuments("boodupy-3000", "discount-codes", [])
+
+      promise.then(
+        (response) => {
+          const discountDocs = response.documents.filter((doc) => doc.code === discountCode.trim().toUpperCase())
+
+          if (discountDocs.length > 0) {
+            const promo = discountDocs[0]
+            const expirationDate = new Date(promo.expiresAt)
+            const now = new Date()
+            if (expirationDate < now) {
+              setDiscountMessage("Ce code de réduction a expiré.")
+              setDiscountedPrice(ORIGINAL_PRICE)
+              setAppliedDiscountInfo(null)
+            } else {
+              const reductionPercentage = Number.parseFloat(promo.percent)
+              if (isNaN(reductionPercentage) || reductionPercentage <= 0 || reductionPercentage > 100) {
+                setDiscountMessage("Code de réduction invalide (valeur de réduction incorrecte).")
+                setDiscountedPrice(ORIGINAL_PRICE)
+                setAppliedDiscountInfo(null)
+                return
+              }
+              const newPrice = ORIGINAL_PRICE - ORIGINAL_PRICE * (reductionPercentage / 100)
+              setDiscountedPrice(Math.max(0.01, newPrice))
+              setAppliedDiscountInfo(promo)
+              setDiscountMessage(
+                `Discount "${promo.code}" applied ! Reduction of ${reductionPercentage}%. New price : $${newPrice.toFixed(
+                  2,
+                )}`,
+              )
+            }
+          } else {
+            setDiscountMessage("Discount code not found or available")
             setDiscountedPrice(ORIGINAL_PRICE)
             setAppliedDiscountInfo(null)
-            return
           }
-          const newPrice = ORIGINAL_PRICE - ORIGINAL_PRICE * (reductionPercentage / 100)
-          setDiscountedPrice(Math.max(0.01, newPrice))
-          setAppliedDiscountInfo(promo)
-          setDiscountMessage(
-            `Discount "${promo.code}" applied ! Reduction of ${reductionPercentage}%. New price : $${newPrice.toFixed(
-              2,
-            )}`,
-          )
-        }
-      } else {
-        setDiscountMessage("Discount code not found or avalaible")
-        setDiscountedPrice(ORIGINAL_PRICE)
-        setAppliedDiscountInfo(null)
-      }
+        },
+        (error) => {
+          console.error("Erreur lors de la vérification du code de réduction :", error)
+          setDiscountMessage("Erreur serveur lors de l'application du code.")
+          setDiscountedPrice(ORIGINAL_PRICE)
+          setAppliedDiscountInfo(null)
+        },
+      )
     } catch (error) {
       console.error("Erreur lors de la vérification du code de réduction :", error)
       setDiscountMessage("Erreur serveur lors de l'application du code.")
@@ -139,17 +152,28 @@ export default function SubscriptionPage() {
     try {
       const u = auth.currentUser
       if (!u) return
-      const token = await u.getIdToken()
-      const res = await fetch("/api/appwrite/subscriptions/activate", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+
+      const expirationDate = new Date()
+      expirationDate.setDate(expirationDate.getDate() + 30) // 30 days from now
+
+      const promise = databases.updateDocument("boodupy-3000", "subscription-300", u.uid, {
+        subscriptionType: "paid",
+        expirationDate: expirationDate.toISOString(),
       })
-      const j = await res.json()
-      if (!res.ok) throw new Error(j?.error || "Activation failed")
-      await refresh()
+
+      promise.then(
+        (response) => {
+          console.log("Subscription activated:", response)
+          refresh()
+        },
+        (error) => {
+          console.error("Erreur lors de l'activation de l'abonnement:", error)
+          setError("Erreur lors de l'activation de l'abonnement.")
+        },
+      )
     } catch (err) {
-      console.error("Erreur lors de l’activation de l’abonnement:", err)
-      setError("Erreur lors de l’activation de l’abonnement.")
+      console.error("Erreur lors de l'activation de l'abonnement:", err)
+      setError("Erreur lors de l'activation de l'abonnement.")
     }
   }
 
