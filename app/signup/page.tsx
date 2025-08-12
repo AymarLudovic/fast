@@ -1,11 +1,11 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth"
 import { useRouter } from "next/navigation"
 import { auth } from "@/lib/firebase-client"
+import { Client, Databases } from "appwrite"
 
 export default function SignupPage() {
   const [email, setEmail] = useState("")
@@ -57,38 +57,81 @@ export default function SignupPage() {
         addLog("✅ Inscription Firebase réussie!")
         addLog(`👤 User ID: ${userCredential.user.uid}`)
 
-        addLog("🌐 Appel API serveur pour création abonnement...")
-        const response = await fetch("/api/create-subscription", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            userId: userCredential.user.uid,
-            email: email,
-          }),
-        })
+        addLog("📝 Configuration Appwrite...")
+        addLog("🔧 Initialisation client Appwrite...")
 
-        addLog(`📡 Réponse serveur reçue (Status: ${response.status})`)
-        const result = await response.json()
-        addLog(`📋 Données réponse: ${JSON.stringify(result, null, 2)}`)
+        const client = new Client()
+        addLog("🌐 Configuration endpoint...")
+        client.setEndpoint("https://fra.cloud.appwrite.io/v1")
+        addLog("✅ Endpoint configuré: https://fra.cloud.appwrite.io/v1")
 
-        if (result.success) {
-          addLog("🎉 SUCCÈS! Abonnement créé via serveur")
-          addLog(`📊 Détails: ${JSON.stringify(result.data, null, 2)}`)
+        addLog("🆔 Configuration projet...")
+        client.setProject("68802a5d00297352e520")
+        addLog("✅ Projet configuré: 68802a5d00297352e520")
+
+        const databases = new Databases(client)
+        addLog("✅ Client Appwrite configuré")
+
+        addLog("⏰ Création date expiration (3 minutes)...")
+        const expirationDate = new Date()
+        expirationDate.setMinutes(expirationDate.getMinutes() + 3)
+        addLog(`📅 Expiration: ${expirationDate.toISOString()}`)
+
+        const documentData = {
+          userId: userCredential.user.uid,
+          subscriptionType: "trial",
+          expirationDate: expirationDate.toISOString(),
+        }
+        addLog(`📄 Données document: ${JSON.stringify(documentData, null, 2)}`)
+
+        addLog("🔄 Création document Appwrite...")
+        addLog("🗂️ Database: boodupy-3000")
+        addLog("📁 Collection: subscription-300")
+        addLog(`🆔 Document ID: ${userCredential.user.uid}`)
+
+        addLog("📡 Envoi requête createDocument...")
+        const startTime = Date.now()
+
+        try {
+          const response = await databases.createDocument(
+            "boodupy-3000",
+            "subscription-300",
+            userCredential.user.uid,
+            documentData,
+          )
+
+          const endTime = Date.now()
+          addLog(`⏱️ Temps réponse: ${endTime - startTime}ms`)
+          addLog("🎉 SUCCÈS! Document créé dans Appwrite")
+          addLog(`📊 Réponse complète: ${JSON.stringify(response, null, 2)}`)
+          addLog(`📋 Document ID créé: ${response.$id}`)
+          addLog(`📅 Date création: ${response.$createdAt}`)
+          addLog(`🔄 Date mise à jour: ${response.$updatedAt}`)
           setShowSuccess(true)
-        } else {
-          addLog("❌ ERREUR SERVEUR!")
-          addLog(`🔍 Type erreur: ${result.error.type}`)
-          addLog(`💬 Message: ${result.error.message}`)
-          addLog(`🔢 Code: ${result.error.code || "Aucun code"}`)
-          addLog(`📊 Status: ${result.error.status || "Aucun status"}`)
-          addLog(`🌐 Response: ${JSON.stringify(result.error.response || {}, null, 2)}`)
-          addLog(`📚 Stack: ${result.error.stack || "Aucune stack"}`)
+        } catch (appwriteError: any) {
+          const endTime = Date.now()
+          addLog(`⏱️ Temps avant erreur: ${endTime - startTime}ms`)
+          addLog("❌ ERREUR APPWRITE DÉTECTÉE!")
+          addLog(`🔍 Type erreur: ${appwriteError.constructor.name}`)
+          addLog(`💬 Message: ${appwriteError.message}`)
+          addLog(`🔢 Code: ${appwriteError.code || "Aucun code"}`)
+          addLog(`📊 Status: ${appwriteError.status || "Aucun status"}`)
+          addLog(`🌐 Response: ${JSON.stringify(appwriteError.response || {}, null, 2)}`)
+          addLog(`📚 Stack: ${appwriteError.stack || "Aucune stack"}`)
+          addLog(`🔧 Objet complet: ${JSON.stringify(appwriteError, null, 2)}`)
+
+          // Additional network debugging
+          if (appwriteError.message === "Failed to fetch") {
+            addLog("🌐 DIAGNOSTIC RÉSEAU:")
+            addLog("- Vérifiez la connexion internet")
+            addLog("- Vérifiez les paramètres CORS dans Appwrite")
+            addLog("- Vérifiez que le domaine est autorisé dans Appwrite")
+            addLog("- Vérifiez les permissions de la collection")
+          }
         }
       }
     } catch (error: any) {
-      addLog("❌ ERREUR DÉTECTÉE!")
+      addLog("❌ ERREUR GÉNÉRALE DÉTECTÉE!")
       addLog(`🔍 Type erreur: ${error.constructor.name}`)
       addLog(`💬 Message: ${error.message}`)
       addLog(`🔢 Code: ${error.code || "Aucun code"}`)
