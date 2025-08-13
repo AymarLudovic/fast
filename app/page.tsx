@@ -19,6 +19,8 @@ import { Switch } from "@/components/ui/switch"
 import { type auth, onAuth, logout } from "@/lib/firebase"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Client, Databases } from "appwrite"
+import { Progress } from "@/components/ui/progress"
 
 const bodoni = Bodoni_Moda({ subsets: ["latin"], display: "swap" })
 
@@ -141,14 +143,80 @@ export default function SiteInspector() {
   // Firebase auth
   const [isAuthReady, setIsAuthReady] = useState(false)
   const [user, setUser] = useState<ReturnType<(typeof auth)["currentUser"]> | null>(null)
+  const [subscription, setSubscription] = useState<any>(null)
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false)
 
   useEffect(() => {
     const unsub = onAuth(async (u) => {
       setUser(u)
       setIsAuthReady(true)
+      if (u) {
+        loadSubscription(u.uid)
+      } else {
+        setSubscription(null)
+      }
     })
     return () => unsub()
   }, [])
+
+  const loadSubscription = async (userId: string) => {
+    setSubscriptionLoading(true)
+    try {
+      const client = new Client()
+      client.setEndpoint("https://fra.cloud.appwrite.io/v1")
+      client.setProject("68802a5d00297352e520")
+      const databases = new Databases(client)
+
+      const response = await databases.listDocuments("boodupy-3000", "subscription-300", [
+        `equal("userId", "${userId}")`,
+      ])
+
+      if (response.documents.length > 0) {
+        setSubscription(response.documents[0])
+      } else {
+        setSubscription(null)
+      }
+    } catch (error) {
+      console.error("Error loading subscription:", error)
+      setSubscription(null)
+    } finally {
+      setSubscriptionLoading(false)
+    }
+  }
+
+  const isSubscriptionValid = () => {
+    if (!subscription) return false
+    const now = new Date()
+    const expiration = new Date(subscription.expirationDate)
+    return now < expiration
+  }
+
+  const getSubscriptionProgress = () => {
+    if (!subscription) return 0
+    const now = new Date()
+    const expiration = new Date(subscription.expirationDate)
+    const created = new Date(subscription.$createdAt)
+    const total = expiration.getTime() - created.getTime()
+    const elapsed = now.getTime() - created.getTime()
+    return Math.max(0, Math.min(100, (elapsed / total) * 100))
+  }
+
+  const getTimeRemaining = () => {
+    if (!subscription) return ""
+    const now = new Date()
+    const expiration = new Date(subscription.expirationDate)
+    const diff = expiration.getTime() - now.getTime()
+
+    if (diff <= 0) return "Expired"
+
+    const minutes = Math.floor(diff / (1000 * 60))
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000)
+
+    if (minutes > 0) {
+      return `${minutes}m ${seconds}s remaining`
+    }
+    return `${seconds}s remaining`
+  }
 
   // UI and analyzer state
   const [url, setUrl] = useState("")
@@ -860,7 +928,16 @@ ${result.fullHTML}
               {email}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" className="w-64">
+            {subscription && (
+              <div className="p-3 border-b">
+                <div className="text-sm font-medium mb-2">
+                  {subscription.subscriptionType === "trial" ? "Free Trial" : "$2.99/month"}
+                </div>
+                <div className="text-xs text-gray-600 mb-2">{getTimeRemaining()}</div>
+                <Progress value={getSubscriptionProgress()} className="h-2" />
+              </div>
+            )}
             <DropdownMenuItem
               onClick={async () => {
                 await logout()
@@ -887,7 +964,11 @@ ${result.fullHTML}
   const inputPlaceholder = !user ? "Sign up to analyze (you'll be redirected)" : "https://example.com"
 
   const onInputFocus = () => {
-    if (!user) router.push("/signup")
+    if (!user) {
+      router.push("/signup")
+    } else if (!isSubscriptionValid()) {
+      router.push("/subscription")
+    }
   }
 
   return (
@@ -958,6 +1039,7 @@ ${result.fullHTML}
                   src={
                     proposalUrlImages[pUrl] ||
                     " /placeholder.svg?height=16&width=16&query=proposal%20preview%20thumbnail" ||
+                    "/placeholder.svg" ||
                     "/placeholder.svg" ||
                     "/placeholder.svg"
                   }

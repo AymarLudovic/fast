@@ -18,7 +18,7 @@ export default function SubscriptionPage() {
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null)
   const [isSubscriptionValid, setIsSubscriptionValid] = useState<boolean>(false)
   const [discountCode, setDiscountCode] = useState("")
-  const ORIGINAL_PRICE = 10.0
+  const ORIGINAL_PRICE = 2.99 // Updated price from $10 to $2.99
   const [discountedPrice, setDiscountedPrice] = useState<number>(ORIGINAL_PRICE)
   const [appliedDiscountInfo, setAppliedDiscountInfo] = useState<any | null>(null)
   const [discountMessage, setDiscountMessage] = useState<string>("")
