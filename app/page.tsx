@@ -1041,6 +1041,7 @@ ${result.fullHTML}
                     " /placeholder.svg?height=16&width=16&query=proposal%20preview%20thumbnail" ||
                     "/placeholder.svg" ||
                     "/placeholder.svg" ||
+                    "/placeholder.svg" ||
                     "/placeholder.svg"
                   }
                   alt={`${pUrl} preview`}
