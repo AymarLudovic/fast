@@ -167,15 +167,9 @@ export default function SiteInspector() {
       client.setProject("68802a5d00297352e520")
       const databases = new Databases(client)
 
-      const response = await databases.listDocuments("boodupy-3000", "subscription-300", [
-        `equal("userId", "${userId}")`,
-      ])
-
-      if (response.documents.length > 0) {
-        setSubscription(response.documents[0])
-      } else {
-        setSubscription(null)
-      }
+      // Use getDocument with userId as document ID, same as subscription page
+      const response = await databases.getDocument("boodupy-3000", "subscription-300", userId)
+      setSubscription(response)
     } catch (error) {
       console.error("Error loading subscription:", error)
       setSubscription(null)
@@ -673,15 +667,31 @@ export default function SiteInspector() {
 
   const redirectToAuth = () => router.push("/signup")
 
-  const handleAnalyzeClick = async () => {
-    if (!user) return redirectToAuth()
-    await analyzeSite()
+  const handleAnalyzeClick = () => {
+    if (!user) {
+      router.push("/signup")
+      return
+    }
+    if (!isSubscriptionValid()) {
+      router.push("/subscription")
+      return
+    }
+    // Continue with analysis...
+    analyzeSite()
   }
 
-  const handleProposalClick = async (proposalUrl: string) => {
-    if (!user) return redirectToAuth()
+  const handleProposalClick = (proposalUrl: string) => {
+    if (!user) {
+      router.push("/signup")
+      return
+    }
+    if (!isSubscriptionValid()) {
+      router.push("/subscription")
+      return
+    }
+    // Continue with proposal analysis...
     setUrl(proposalUrl)
-    await analyzeSite(proposalUrl)
+    analyzeSite(proposalUrl)
   }
 
   const escTpl = (s: string) => s.replace(/`/g, "\\`").replace(/\$\{/g, "\\${")
@@ -966,9 +976,8 @@ ${result.fullHTML}
   const onInputFocus = () => {
     if (!user) {
       router.push("/signup")
-    } else if (!isSubscriptionValid()) {
-      router.push("/subscription")
     }
+    // Removed subscription check from input focus - only check when analyzing
   }
 
   return (
@@ -1039,6 +1048,7 @@ ${result.fullHTML}
                   src={
                     proposalUrlImages[pUrl] ||
                     " /placeholder.svg?height=16&width=16&query=proposal%20preview%20thumbnail" ||
+                    "/placeholder.svg" ||
                     "/placeholder.svg" ||
                     "/placeholder.svg" ||
                     "/placeholder.svg" ||
