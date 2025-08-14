@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Globe, ArrowUp, Copy, Download, LogOut } from "lucide-react"
+import { Globe, Copy, Download, LogOut } from "lucide-react"
 import { motion, useReducedMotion } from "framer-motion"
 import { Bodoni_Moda } from "next/font/google"
 import {
@@ -14,8 +14,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
 import { type auth, onAuth, logout } from "@/lib/firebase"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -223,43 +221,25 @@ export default function SiteInspector() {
   const [showExportModal, setShowExportModal] = useState(false)
   const [selectedFramework, setSelectedFramework] = useState<FrameworkKey>("next")
   const [generatedFilename, setGeneratedFilename] = useState<string>("")
-  const [generatedCode, setGeneratedCode] = useState<string>("")
+  const [generatedCode, setGeneratedCode] = useState<{ HTML: string; CSS: string; JS: string } | null>(null)
   const [showCodePreview, setShowCodePreview] = useState<boolean>(false)
-  const proposalUrlsSection1 = [
-  "cursor.com",
-  "framer.com",
-  "lovable.dev",
-  "linear.app",
-  "notion.com"
-];
+  const [copySuccess, setCopySuccess] = useState(false)
+  const [showFrameworkDialog, setShowFrameworkDialog] = useState(false)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
   
+  // MODIFICATION 3: State for analysis progress messages
+  const [analysisStep, setAnalysisStep] = useState("")
 
-  const proposalUrlsSection2 = [
-  { url: "playerzero.ai", image: existingImage1 },
-  { url: "apresentforce.com", image: existingImage2 },
-  {
-    url: "portfolite.framer.website",
-    image: "https://fra.cloud.appwrite.io/v1/storage/buckets/68968fe8001266b9f411/files/689e40cd000ed8efd26d/view?project=68802a5d00297352e520&mode=admin"
-  }
-];
-
-const [analysisStep, setAnalysisStep] = useState(0);
-const messages = [
-  "Starting analysis...",
-  "Extracting website design...",
-  "Collecting animations and assets...",
-  "Finalizing extraction...",
-  "All set! Preview your design below."
-];
-  
-
+  // Demo urls and cards
+  const proposalUrls = ["cursor.com", "framer.com", "lovable.dev", "linear.app", "notion.com"]
+  const proposalUrlsWithImages = ["playerzero.ai", "apresentforce.com", "portfolite.framer.website"]
   const proposalUrlImages: Record<string, string> = {
-    "cosmos.so":
+    "playerzero.ai":
       "https://fra.cloud.appwrite.io/v1/storage/buckets/68968fe8001266b9f411/files/68969cd6000b7adb25e0/view?project=68802a5d00297352e520&mode=admin",
-    "stripe.com":
+    "apresentforce.com":
       "https://fra.cloud.appwrite.io/v1/storage/buckets/68968fe8001266b9f411/files/68969d45000bcf13ad68/view?project=68802a5d00297352e520&mode=admin",
-    "linear.app":
-      "https://fra.cloud.appwrite.io/v1/storage/buckets/68968fe8001266b9f411/files/68969d55000989225796/view?project=68802a5d00297352e520&mode=admin",
+    "portfolite.framer.website":
+      "https://fra.cloud.appwrite.io/v1/storage/buckets/68968fe8001266b9f411/files/689e40cd000ed8efd26d/view?project=68802a5d00297352e520&mode=admin",
   }
 
   const createDownloadLink = (content: string, filename: string, mimeType: string) => {
@@ -467,12 +447,38 @@ const messages = [
     }
   }
 
-  const analyzeSite = async (urlToAnalyze = url) => {
-    if (!urlToAnalyze) return
+  // MODIFICATION 3: Analysis status messages and progress function
+  const analysisMessages = [
+    "Starting analysis...",
+    "Extracting design elements...",
+    "Capturing animations...",
+    "Processing styles...",
+    "All set! View your extracted design",
+  ]
+
+  const showAnalysisProgress = () => {
+    let messageIndex = 0
+    const interval = setInterval(() => {
+      setAnalysisStep(analysisMessages[messageIndex])
+      messageIndex++
+      if (messageIndex >= analysisMessages.length) {
+        clearInterval(interval)
+      }
+    }, 1500)
+    return () => clearInterval(interval)
+  }
+
+  const analyzeSite = async (urlToAnalyze: string) => {
     setLoading(true)
-    setError(null)
     setResult(null)
+    setError("")
     setCopyStatus(null)
+    setIsAnalyzing(true)
+    setAnalysisStep(analysisMessages[0]) // Set initial message
+
+    // Start progress messages animation
+    const clearProgressInterval = showAnalysisProgress()
+
     try {
       const MAX_SITE_FETCH_ATTEMPTS = 10
       for (let attempt = 1; attempt <= MAX_SITE_FETCH_ATTEMPTS; attempt++) {
@@ -535,721 +541,4 @@ const messages = [
                   isAnimation: true,
                   library: animationInfo.library,
                   confidence: animationInfo.confidence,
-                })
-              }
-              cssFiles.push(
-                `/* Fetched from: ${fullHref} ${animationInfo.isAnimation ? `(ANIMATION FILE - ${animationInfo.confidence}%)` : ""} */\n${fetchResult.content}`,
-              )
-            } else {
-              cssFiles.push(`/* FETCH FAILED after 15 attempts: ${href} - Error: ${fetchResult.error} */`)
-            }
-          }
-
-          const inlineCSS = Array.from(doc.querySelectorAll("style")).map((el, index) => {
-            const content = el.textContent || ""
-            const animationInfo = detectAnimationLibrary(`inline-style-${index}`, content)
-            if (animationInfo.isAnimation && animationInfo.confidence > 60) {
-              animationFiles.push({
-                url: `inline-style-${index}`,
-                content,
-                type: "css",
-                isAnimation: true,
-                library: animationInfo.library,
-                confidence: animationInfo.confidence,
-              })
-            }
-            return `/* Inline style ${index} ${animationInfo.isAnimation ? `(ANIMATION - ${animationInfo.confidence}%)` : ""} */\n${content}`
-          })
-          const fullCSS = [...cssFiles, ...inlineCSS].join("\n\n")
-
-          const scriptEls = Array.from(doc.querySelectorAll("script")).map((el) => ({
-            src: el.getAttribute("src"),
-            content: el.textContent,
-            type: el.getAttribute("type") || "text/javascript",
-          }))
-
-          const jsFiles: string[] = []
-          const externalScripts = scriptEls.filter((s) => !!s.src)
-
-          for (const script of externalScripts) {
-            const fullSrc = new URL(script.src!, baseURL).href
-            const fetchResult = await fetchWithRetry(fullSrc)
-            if (fetchResult.success) {
-              const animationInfo = detectAnimationLibrary(fullSrc, fetchResult.content)
-              if (animationInfo.isAnimation && animationInfo.confidence > 60) {
-                animationFiles.push({
-                  url: fullSrc,
-                  content: fetchResult.content,
-                  type: "js",
-                  isAnimation: true,
-                  library: animationInfo.library,
-                  confidence: animationInfo.confidence,
-                })
-              }
-              jsFiles.push(
-                `// Fetched from: ${fullSrc} ${animationInfo.isAnimation ? `(ANIMATION FILE - ${animationInfo.confidence}%)` : ""}\n// Library: ${animationInfo.library || "None"}\n${fetchResult.content}`,
-              )
-            } else {
-              jsFiles.push(`// FETCH FAILED after 15 attempts: ${script.src} - Error: ${fetchResult.error}`)
-            }
-          }
-
-          const inlineScripts = scriptEls.filter((s) => !s.src && s.content)
-          const inlineJS = inlineScripts.map((script, index) => {
-            const content = script.content || ""
-            const animationInfo = detectAnimationLibrary(`inline-script-${index}`, content)
-            if (animationInfo.isAnimation && animationInfo.confidence > 60) {
-              animationFiles.push({
-                url: `inline-script-${index}`,
-                content,
-                type: "js",
-                isAnimation: true,
-                library: animationInfo.library,
-                confidence: animationInfo.confidence,
-              })
-            }
-            return `// Inline script ${index} ${animationInfo.isAnimation ? `(ANIMATION CODE - ${animationInfo.confidence}%)` : ""}\n// Library: ${animationInfo.library || "None"}\n${content}`
-          })
-
-          const fullJS = [...jsFiles, ...inlineJS].join("\n\n// ===== NEXT SCRIPT =====\n\n")
-
-          // CDN collection for iframe
-          const detectedLibraries = [...new Set(animationFiles.map((f) => f.library).filter(Boolean))]
-          const allCdnUrls: string[] = []
-          detectedLibraries.forEach((library) => {
-            const cdnUrls = getLibraryCDN(library!)
-            allCdnUrls.push(...cdnUrls)
-          })
-
-          // Body reconstruction
-          const docClone = parser.parseFromString(html, "text/html")
-          const bodyHTML = docClone.body.innerHTML
-          const bodyAttributes = Array.from(docClone.body.attributes)
-            .map((attr) => `${attr.name}="${attr.value}"`)
-            .join(" ")
-          const cleanedHTML = bodyAttributes ? `<body ${bodyAttributes}>${bodyHTML}</body>` : bodyHTML
-
-          // Tech guesses
-          const allCode = [fullJS, fullCSS, html].join(" ")
-          const techGuesses: string[] = []
-          const techPatterns = {
-            React: /react|jsx|createelement/gi,
-            Vue: /vue\.js|v-if|v-for|\{\{.*\}\}/gi,
-            Angular: /angular|ng-|@component/gi,
-            jQuery: /jquery|\$\(/gi,
-            GSAP: /gsap|greensock|tweenmax|tweenlite/gi,
-            "Framer Motion": /framer-motion|motion\./gi,
-            Lottie: /lottie|bodymovin/gi,
-            "Three.js": /three\.js|webgl/gi,
-            Bootstrap: /bootstrap/gi,
-            Tailwind: /tailwind/gi,
-            AOS: /aos\.js|data-aos/gi,
-            "Locomotive Scroll": /locomotive-scroll/gi,
-            "Barba.js": /barba\.js/gi,
-            Swiper: /swiper/gi,
-            Particles: /particles/gi,
-          }
-          Object.entries(techPatterns).forEach(([tech, pattern]) => {
-            // @ts-expect-error dynamic regex
-            if (pattern.test(allCode)) techGuesses.push(tech)
-          })
-          animationFiles.forEach((file) => {
-            if (file.library && !techGuesses.includes(file.library)) techGuesses.push(file.library)
-          })
-
-          setResult({
-            title,
-            description,
-            techGuesses,
-            internalLinks,
-            externalLinks,
-            images: imageSrcs,
-            stylesheets: stylesheetLinks.length,
-            openGraphTags: ogTags,
-            fullHTML: cleanedHTML,
-            fullCSS,
-            fullJS,
-            baseURL,
-            animationFiles,
-            requiredCdnUrls: allCdnUrls,
-          })
-          setLoading(false)
-          return
-        } catch (err) {
-          if (attempt === MAX_SITE_FETCH_ATTEMPTS) {
-            setError("⌐ Analysis failed after multiple attempts.")
-            setLoading(false)
-          } else {
-            await new Promise((res) => setTimeout(res, 2000))
-          }
-        }
-      }
-    } catch (err) {
-      setError(`Analysis failed: ${err instanceof Error ? err.message : String(err)}`)
-      setLoading(false)
-    }
-  }
-
-  const redirectToAuth = () => router.push("/signup")
-
-  const handleAnalyzeClick = () => {
-    if (!user) {
-      router.push("/signup")
-      return
-    }
-    if (!isSubscriptionValid()) {
-      router.push("/subscription")
-      return
-    }
-    // Continue with analysis...
-    analyzeSite()
-  }
-
-  const handleProposalClick = (proposalUrl: string) => {
-    if (!user) {
-      router.push("/signup")
-      return
-    }
-    if (!isSubscriptionValid()) {
-      router.push("/subscription")
-      return
-    }
-    // Continue with proposal analysis...
-    setUrl(proposalUrl)
-    analyzeSite(proposalUrl)
-  }
-
-  const escTpl = (s: string) => s.replace(/`/g, "\\`").replace(/\$\{/g, "\\${")
-  const gen = (fw: FrameworkKey) => {
-    if (!result) return { filename: "", code: "" }
-    const HTML = escTpl(result.fullHTML)
-    const CSS = escTpl(result.fullCSS)
-    const JS = escTpl(result.fullJS)
-    switch (fw) {
-      case "next":
-        return {
-          filename: "app/preview/page.tsx",
-          code: `"use client"
-import { useEffect } from "react"
-
-export default function Page() {
-  useEffect(() => {
-    const style = document.createElement("style")
-    style.id = "extracted-styles"
-    style.textContent = \`${CSS}\`
-    document.head.appendChild(style)
-
-    const script = document.createElement("script")
-    script.id = "extracted-scripts"
-    script.innerHTML = \`${JS}\`
-    document.body.appendChild(script)
-
-    return () => { try { style.remove(); script.remove(); } catch {} }
-  }, [])
-
-  return <main dangerouslySetInnerHTML={{ __html: \`${HTML}\` }} />
-}
-`,
-        }
-      case "remix":
-        return {
-          filename: "app/routes/preview.tsx",
-          code: `import { useEffect } from "react"
-export default function Preview() {
-  useEffect(() => {
-    const style = document.createElement("style"); style.id="extracted-styles"; style.textContent=\`${CSS}\`; document.head.appendChild(style);
-    const script = document.createElement("script"); script.id="extracted-scripts"; script.innerHTML=\`${JS}\`; document.body.appendChild(script);
-    return () => { try { style.remove(); script.remove(); } catch {} }
-  }, [])
-  return <div dangerouslySetInnerHTML={{ __html: \`${HTML}\` }} />
-}
-`,
-        }
-      case "astro":
-        return {
-          filename: "src/pages/preview.astro",
-          code: `---
----
-<style is:global>
-${result.fullCSS}
-</style>
-${result.fullHTML}
-<script is:inline>
-${result.fullJS}
-</script>
-`,
-        }
-      case "vite-react":
-        return {
-          filename: "src/App.jsx",
-          code: `import { useEffect } from "react"
-export default function App() {
-  useEffect(() => {
-    const style = document.createElement("style"); style.id="extracted-styles"; style.textContent=\`${CSS}\`; document.head.appendChild(style)
-    const script = document.createElement("script"); script.id="extracted-scripts"; script.innerHTML=\`${JS}\`; document.body.appendChild(script)
-    return () => { try { style.remove(); script.remove(); } catch {} }
-  }, [])
-  return <div dangerouslySetInnerHTML={{ __html: \`${HTML}\` }} />
-}
-`,
-        }
-      case "sveltekit":
-        return {
-          filename: "src/routes/preview/+page.svelte",
-          code: `<script>
-  import { onMount } from "svelte";
-  onMount(() => {
-    const style = document.createElement("style"); style.id="extracted-styles"; style.textContent=\`${CSS}\`; document.head.appendChild(style);
-    const script = document.createElement("script"); script.id="extracted-scripts"; script.innerHTML=\`${JS}\`; document.body.appendChild(script);
-    return () => { try { style.remove(); script.remove(); } catch {} };
-  });
-</script>
-<div>{@html \`${HTML}\`}</div>
-`,
-        }
-      case "vue-vite":
-        return {
-          filename: "src/App.vue",
-          code: `<script setup>
-import { onMounted } from "vue";
-onMounted(() => {
-  const style = document.createElement("style"); style.id="extracted-styles"; style.textContent=\`${CSS}\`; document.head.appendChild(style);
-  const script = document.createElement("script"); script.id="extracted-scripts"; script.innerHTML=\`${JS}\`; document.body.appendChild(script);
-  return () => { try { style.remove(); script.remove(); } catch {} };
-});
-</script>
-<template><div v-html="\`${HTML}\`"></div></template>
-`,
-        }
-      case "nuxt":
-        return {
-          filename: "pages/preview.vue",
-          code: `<script setup>
-import { onMounted } from "vue";
-onMounted(() => {
-  const style = document.createElement("style"); style.id="extracted-styles"; style.textContent=\`${CSS}\`; document.head.appendChild(style);
-  const script = document.createElement("script"); script.id="extracted-scripts"; script.innerHTML=\`${JS}\`; document.body.appendChild(script);
-  return () => { try { style.remove(); script.remove(); } catch {} };
-});
-</script>
-<template><div v-html="\`${HTML}\`"></div></template>
-`,
-        }
-      case "html":
-        return {
-          filename: "index.html",
-          code: `<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Combined Export</title><style>
-${result.fullCSS}
-</style></head><body>
-${result.fullHTML}
-<script>
-${result.fullJS}
-</script></body></html>`,
-        }
-      default:
-        return { filename: "", code: "" }
-    }
-  }
-
-  useEffect(() => {
-    if (!result) return
-    const { filename, code } = gen(selectedFramework)
-    setGeneratedFilename(filename)
-    setGeneratedCode(code)
-  }, [selectedFramework, result])
-
-  const buildJsxPrompt = (): string => {
-    if (!result) return ""
-    const { filename, code } = gen("vite-react")
-    const libs =
-      result.requiredCdnUrls && result.requiredCdnUrls.length
-        ? `Detected external libraries (CDN):\n${result.requiredCdnUrls.join("\n")}\n\n`
-        : ""
-    return `You are given a complete, ready-to-use React JSX implementation. Use it EXACTLY as provided, with no changes or omissions. Only make surgical fixes if the compiler throws an error on specific lines while building; do not refactor, do not change structure or styling, and do not add or remove features.
-
-Project file to create: ${filename}
-
-${libs}Complete source code (paste as-is):
-\`\`\`jsx
-${code}
-\`\`\`
-
-Important:
-- Do NOT extract or separate HTML/CSS/JS. The code is already fully integrated in JSX.
-- Do NOT rewrite into a different framework.
-- If you encounter a compile/runtime error, fix only the minimal lines needed without changing the overall code.`
-  }
-
-  const handleCopyPrompt = () => {
-    if (!result) return
-    const prompt = buildJsxPrompt()
-    if (!prompt) return
-    copyToClipboard(prompt, "prompt")
-  }
-
-  const handleDownloadPrompt = () => {
-    if (!result) return
-    const prompt = buildJsxPrompt()
-    if (!prompt) return
-    createDownloadLink(prompt, "prompt-react-jsx.txt", "text/plain")
-  }
-
-  const createOptimizedPreview = () => {
-    if (!result) return ""
-    const escapeForScript = (s: string) => s.replace(/<\/script>/gi, "<\\/script>")
-    const escapeForStyle = (s: string) => s.replace(/<\/style>/gi, "<\\/style>")
-
-    const cdnTags = result.requiredCdnUrls
-      .map((url) =>
-        url.endsWith(".css")
-          ? `    <link rel="stylesheet" href="${url}" crossorigin="anonymous">`
-          : `    <script src="${url}" crossorigin="anonymous"></script>`,
-      )
-      .join("\n")
-
-    const animationCSSRaw = result.animationFiles
-      .filter((f) => f.type === "css")
-      .map((f) => f.content)
-      .join("\n\n")
-    const animationJSRaw = result.animationFiles
-      .filter((f) => f.type === "js")
-      .map((f) => f.content)
-      .join("\n\n")
-
-    const animationInitScriptRaw = `async function initializeAnimations(){await new Promise(r=>setTimeout(r,2000));if(typeof gsap!=='undefined'){try{gsap.set("*",{clearProps:"all"});const E=document.querySelectorAll('h1,h2,h3,.hero,.title,[class*="fade"],[class*="slide"],[class*="animate"]');if(E.length>0){gsap.from(E,{opacity:0,y:50,duration:1,stagger:0.1,ease:"power2.out"})}if(typeof ScrollTrigger!=='undefined'){gsap.registerPlugin(ScrollTrigger);gsap.utils.toArray('[data-scroll], .scroll-trigger').forEach(el=>{gsap.from(el,{opacity:0,y:100,duration:1,scrollTrigger:{trigger:el,start:"top 80%",end:"bottom 20%",toggleActions:"play none none reverse"}})})}}catch(e){}}if(typeof THREE!=='undefined'){const canvas=document.querySelector('canvas')||document.querySelector('#three-canvas');if(canvas){try{const scene=new THREE.Scene();const camera=new THREE.PerspectiveCamera(75,canvas.clientWidth/canvas.clientHeight,0.1,1000);const renderer=new THREE.WebGLRenderer({canvas:canvas,alpha:true});renderer.setSize(canvas.clientWidth,canvas.clientHeight);const geometry=new THREE.BufferGeometry();const vertices=[];for(let i=0;i<1000;i++){vertices.push((Math.random()-0.5)*2000,(Math.random()-0.5)*2000,(Math.random()-0.5)*2000)}geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));const material=new THREE.PointsMaterial({color:0xffffff,size:2});const particles=new THREE.Points(geometry,material);scene.add(particles);camera.position.z=1000;function animate(){requestAnimationFrame(animate);particles.rotation.x+=0.001;particles.rotation.y+=0.001;renderer.render(scene,camera)}animate()}catch(e){}}}if(typeof AOS!=='undefined'){try{AOS.init({duration:1000,once:false,mirror:true,offset:100})}catch(e){}}if(typeof lottie!=='undefined'){try{document.querySelectorAll('[data-lottie], .lottie, [data-animation-path]').forEach(el=>{const path=el.dataset.lottie||el.dataset.animationPath;if(path){lottie.loadAnimation({container:el,renderer:'svg',loop:true,autoplay:true,path})}})}catch(e){}}}if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',initializeAnimations)}else{initializeAnimations()}`
-    const safeAnimationCSS = escapeForStyle(animationCSSRaw)
-    const safeFullCSS = escapeForStyle(result.fullCSS)
-    const safeAnimationJS = escapeForScript(animationJSRaw)
-    const safeInitScript = escapeForScript(animationInitScriptRaw)
-    const safeFullJS = escapeForScript(result.fullJS)
-
-    const previewHtml = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <base href="${result.baseURL}">
-  <title>UI preview</title>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-${cdnTags}
-  <style id="animation-styles">
-${safeAnimationCSS}
-  </style>
-  <style id="regular-styles">
-${safeFullCSS}
-  </style>
-</head>
-<body>
-${result.fullHTML}
-<script>${safeInitScript}</script>
-<script>${safeAnimationJS}</script>
-<script>${safeFullJS}</script>
-</body></html>`
-    return previewHtml
-  }
-
-  const HeaderAction = () => {
-    if (!isAuthReady) return null
-    if (user) {
-      const email = user.email || "user"
-      const fallback = email.slice(0, 2).toUpperCase()
-      return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="h-[32px] rounded-[13px] bg-transparent">
-              <Avatar className="h-6 w-6 mr-2">
-                <AvatarFallback>{fallback}</AvatarFallback>
-              </Avatar>
-              {email}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64">
-            {subscription && (
-              <div className="p-3 border-b">
-                <div className="text-sm font-medium mb-2">
-                  {subscription.subscriptionType === "trial" ? "Free Trial" : "$2.99/month"}
-                </div>
-                <div className="text-xs text-gray-600 mb-2">{getTimeRemaining()}</div>
-                <Progress value={getSubscriptionProgress()} className="h-2" />
-              </div>
-            )}
-            <DropdownMenuItem
-              onClick={async () => {
-                await logout()
-                router.replace("/")
-              }}
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )
-    }
-    return (
-      <a
-        href="/signup"
-        className="h-[32px] w-auto px-5 text-sm flex items-center justify-center rounded-[13px] bg-black text-white font-semibold transition-opacity hover:opacity-90"
-      >
-        Sign up
-      </a>
-    )
-  }
-
-  const inputPlaceholder = !user ? "Sign up to analyze (you'll be redirected)" : "https://example.com"
-
-  const onInputFocus = () => {
-    if (!user) {
-      router.push("/signup")
-    }
-    // Removed subscription check from input focus - only check when analyzing
-  }
-
-  return (
-    <div className="min-h-screen bg-white overflow-hidden p-4 sm:p-8">
-      <header className="max-w-4xl mx-auto flex justify-between items-center mb-12">
-        <svg
-          className="h-[20px] w-[20px]"
-          width="36"
-          height="36"
-          viewBox="0 0 32 32"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="#111"
-        >
-          <rect x="0" y="0" width="32" height="32" rx="10" />
-        </svg>
-        <HeaderAction />
-      </header>
-
-      <div className="max-w-4xl mx-auto p-6 sm:p-10 pb-20">
-        <div className="text-center mb-10">
-          <CircularText size={140} />
-          <h1 className={`${bodoni.className} text-5xl sm:text-7xl md:text-8xl leading-[1.05] text-black mb-4`}>
-            Clone your favorite website design.
-          </h1>
-          <p className="text-lg text-gray-600 max-w-xl mx-auto">
-            Paste a URL, launch the process, and instantly get a pixel-perfect replica of any website&apos;s design.
-          </p>
-        </div>
-
-        <div className="h-[45px] w-[90%] sm:w-[400px] ring-5 ring-[#eee] rounded-[12px] flex items-center p-1 mx-auto mb-4">
-          <div className="h-full w-full bg-[#fff] ring-4 ring-[#FAFAFA] rounded-[12px] flex items-center p-1 ">
-            <div className="p-2">
-              <Globe size={20} className="text-black" />
-            </div>
-            <input
-              type="text"
-              placeholder={inputPlaceholder}
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              onFocus={onInputFocus}
-              className={`flex-grow h-full bg-transparent text-black focus:outline-none focus:ring-0 placeholder-[#888] text-sm`}
-            />
-            <button
-              onClick={handleAnalyzeClick}
-              disabled={loading}
-              className="h-[35px] w-[35px] bg-[#111] rounded-[8px] flex items-center justify-center flex-shrink-0 transition-opacity disabled:opacity-70 disabled:cursor-not-allowed mr-1"
-            >
-              {loading ? (
-                <div className="bg-white rounded-[6px] w-4 h-4 animate-pulse" />
-              ) : (
-                <ArrowUp size={20} className="text-white" />
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* Try chips */}
-        {!loading && !result && (
-          <div className="flex justify-center items-center gap-3 flex-wrap mb-6">
-            <span className="text-sm text-gray-500">Try:</span>
-            {proposalUrlsSection1.map((pUrl) => (
-              <button
-                key={pUrl}
-                onClick={() => handleProposalClick(pUrl)}
-                className="h-[30px] w-auto bg-[#FAFAFA] rounded-[12px] flex items-center px-2 transition-transform hover:scale-105"
-              >
-               
-                <Globe size={14} className="text-black mr-2" />
-                <p className="text-sm text-gray-700">{pUrl}</p>
-                <ArrowUp size={16} className="text-black ml-2" />
-              </button>
-            ))}
-          </div>
-        )}
-            {loading && !result && (
-      <div>
-      <motion.div key={analysisStep} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-  {messages[analysisStep]}
-</motion.div>
-      </div>
-)}
-        {!loading && !result && <LogoMarquee />}
-        {/* RESTORED: Proposal cards grid */}
-        {!loading && !result && (
-          <div className="flex justify-center">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-12">
-              {proposalUrlsSection2.map((pUrl) => (
-                <div
-                  key={pUrl}
-                  onClick={() => handleProposalClick(pUrl)}
-                  className="h-[300px] w-[300px] flex items-center border border-[#eee] rounded-[10px] relative cursor-pointer overflow-hidden bg-white"
-                >
-                  <img
-                    className="h-full w-full object-contain"
-                    src={
-                      proposalUrlImages[pUrl] || "/placeholder.svg?height=300&width=300&query=site%20image%20preview"
-                    }
-                    alt={`${pUrl} site image`}
-                  />
-                  <div className="absolute bottom-1 left-1 z-[1]">
-                    <button className="w-auto backdrop-blur-3xl rounded-[12px] flex items-center px-2 transition-transform hover:scale-105 bg-white/70">
-                      <p className="text-[10px] text-black font-semibold">{pUrl}</p>
-                      <ArrowUp size={16} className="text-black ml-2" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        
-
-        {error && <p className="text-red-600 bg-red-50 p-3 rounded-lg text-center mb-6">{error}</p>}
-
-        {result && (
-          <div className="space-y-12">
-            <div>
-              <h3 className="text-2xl font-bold text-black mb-4">Extracted UI preview</h3>
-              <iframe
-                title="UI preview"
-                className="w-full h-96 border border-gray-200 rounded-xl bg-white"
-                srcDoc={createOptimizedPreview()}
-                sandbox="allow-scripts allow-same-origin"
-              />
-            </div>
-          </div>
-        )}
-      </div>
-
-      {result && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 flex justify-center">
-          <div className="flex items-center gap-3">
-            <div className="h-[40px] w-auto flex items-center rounded-[14px] bg-white shadow-md border border-[#e5e5e5]">
-              <Button
-                onClick={handleCopyPrompt}
-                variant="ghost"
-                className="h-[38px] rounded-[12px] text-sm font-medium px-4"
-              >
-                <Copy className="mr-2 h-4 w-4" />
-                Copy JSX prompt
-              </Button>
-            </div>
-            <div className="h-[40px] w-auto flex items-center rounded-[14px] bg-white shadow-md border border-[#e5e5e5]">
-              <Button
-                onClick={handleDownloadPrompt}
-                variant="ghost"
-                className="h-[38px] rounded-[12px] text-sm font-medium px-4"
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Download prompt
-              </Button>
-            </div>
-            <div className="h-[40px] w-auto flex items-center rounded-[14px] bg-white shadow-md border border-[#e5e5e5]">
-              <Button
-                onClick={() => setShowExportModal(true)}
-                variant="ghost"
-                className="h-[38px] rounded-[12px] text-sm font-medium px-4"
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Download code
-              </Button>
-            </div>
-            {copyStatus?.id === "prompt" && (
-              <span className="text-sm text-green-600 bg-green-50 px-3 py-1 rounded-md">{copyStatus.message}</span>
-            )}
-          </div>
-        </div>
-      )}
-
-      <Dialog open={showExportModal} onOpenChange={setShowExportModal}>
-        <DialogContent className="sm:max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Export code</DialogTitle>
-            <DialogDescription>
-              Select a framework and preview the single-file export. Then download or copy it.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="framework">Framework</Label>
-                <select
-                  id="framework"
-                  className="w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm"
-                  value={selectedFramework}
-                  onChange={(e) => setSelectedFramework(e.target.value as FrameworkKey)}
-                >
-                  {Object.entries(frameworkLabel).map(([key, label]) => (
-                    <option key={key} value={key}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label className="inline-flex items-center justify-between w-full">
-                  <span>View code</span>
-                  <Switch checked={showCodePreview} onCheckedChange={setShowCodePreview} />
-                </Label>
-                <input
-                  readOnly
-                  value={generatedFilename}
-                  className="w-full h-10 rounded-md border border-gray-200 bg-gray-50 px-3 text-xs"
-                />
-              </div>
-            </div>
-            {showCodePreview && (
-              <div className="rounded-lg border bg-[#0b0c10] border-gray-800 overflow-hidden">
-                <div className="px-3 py-2 text-xs text-gray-300 bg-[#0f1117] border-b border-gray-800 flex justify-between">
-                  <span>{generatedFilename}</span>
-                  <span className="text-gray-500">readonly preview</span>
-                </div>
-                <pre className="max-h-[420px] overflow-auto text-xs leading-5 p-4 text-gray-100">
-                  <code>{generatedCode}</code>
-                </pre>
-              </div>
-            )}
-          </div>
-          <DialogFooter className="gap-2">
-            <Button
-              variant="secondary"
-              onClick={() => copyToClipboard(generatedCode, "export-code")}
-              disabled={!generatedCode}
-            >
-              <Copy className="mr-2 h-4 w-4" />
-              Copy code
-            </Button>
-            <Button
-              onClick={() => {
-                if (!generatedCode || !generatedFilename) return
-                const mime = generatedFilename.endsWith(".html")
-                  ? "text/html"
-                  : generatedFilename.endsWith(".astro")
-                    ? "text/plain"
-                    : "text/plain"
-                const flat = generatedFilename.replaceAll("/", "_")
-                createDownloadLink(generatedCode, flat, mime)
-              }}
-              disabled={!generatedCode}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Download file
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  )
-}
+           
