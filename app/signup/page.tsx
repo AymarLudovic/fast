@@ -13,7 +13,6 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { auth } from "@/lib/firebase-client"
 import { Client, Databases } from "appwrite"
 
@@ -54,7 +53,7 @@ export default function SignupPage() {
     addLog("✅ Client Appwrite configuré")
 
     const expirationDate = new Date()
-    expirationDate.setMinutes(expirationDate.getMinutes() + 3)
+    expirationDate.setDate(expirationDate.getDate() + 3) // Updated trial period to 3 days instead of 3 minutes
 
     const documentData = {
       userId: userId,
@@ -173,14 +172,14 @@ export default function SignupPage() {
   if (mode === "reset") {
     return (
       <main className="min-h-screen bg-white flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Reset your password</CardTitle>
-            <CardDescription>
+        <div className="w-full max-w-md">
+          <div className="mb-6 text-center">
+            <h1 className="text-2xl font-bold">Reset your password</h1>
+            <p className="text-gray-600 mt-2">
               Enter your email address and we'll send you a link to reset your password.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+            </p>
+          </div>
+          <div className="space-y-4">
             <form onSubmit={onSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
@@ -204,30 +203,25 @@ export default function SignupPage() {
                 Back to sign in
               </button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </main>
     )
   }
 
   return (
     <main className="min-h-screen bg-white flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>{mode === "signup" ? "Create your account" : "Welcome back"}</CardTitle>
-          <CardDescription>
+      <div className="w-full max-w-md">
+        <div className="mb-6 text-center">
+          <h1 className="text-2xl font-bold">{mode === "signup" ? "Create your account" : "Welcome back"}</h1>
+          <p className="text-gray-600 mt-2">
             {mode === "signup"
-              ? "Sign up with email and password. A 3-minute trial starts immediately."
+              ? "Sign up with email and password. A 3-day trial starts immediately."
               : "Log in with your email and password."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button
-            onClick={handleGoogleSignIn}
-            variant="outline"
-            className="w-full mb-4 bg-transparent"
-            disabled={loading}
-          >
+          </p>
+        </div>
+        <div className="space-y-4">
+          <Button onClick={handleGoogleSignIn} variant="outline" className="w-full bg-transparent" disabled={loading}>
             <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
               <path
                 fill="currentColor"
@@ -249,7 +243,7 @@ export default function SignupPage() {
             Continue with Google
           </Button>
 
-          <div className="relative mb-4">
+          <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t" />
             </div>
@@ -332,8 +326,8 @@ export default function SignupPage() {
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </main>
   )
 }

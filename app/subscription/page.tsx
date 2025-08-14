@@ -181,142 +181,149 @@ export default function SubscriptionPage() {
     timeRemaining !== null ? formatDistanceToNow(new Date(Date.now() + timeRemaining), { addSuffix: true }) : ""
 
   return (
-    <div className="h-screen w-full text-black overflow-y-auto">
-      <div className="fixed top-12 left-[12%] lg:left-[48%]">
-        <div className="flex items-center gap-1">
-          <Sparkles size={18} />
-          <span className="font-semibold text-3xl">Studio</span>
-        </div>
-      </div>
-
-      <div className="absolute flex-col overflow-y-auto md:flex-row lg:flex-row bottom-0 bg-white h-[80%] md:h-[60%] lg:h-[60%] rounded-t-[15px] p-2 w-full lg:border-t flex items-center justify-center gap-3 border-[#EEE]">
-        {/* Plan */}
-        <div className="h-[90%] flex flex-col gap-2 p-3 w-[90%] lg:w-[40%] md:w-[40%] border border-[#EEE] rounded-[20px]">
-          <div className="flex items-center gap-2">
-            <h2 className="text-2xl md:text-3xl">Pro</h2>
-            <div className="py-1 px-2 rounded-[12px] select-none text-white bg-blue-600 text-xs md:text-sm h-[26px] md:h-[30px] flex items-center justify-center">
-              upgrade
+    <div className="min-h-screen bg-white text-black">
+      <div className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center gap-2">
+              <Sparkles size={20} className="text-black" />
+              <span className="font-semibold text-xl">Studio</span>
             </div>
           </div>
-          <div className="flex items-baseline gap-2">
-            <h2 className="text-4xl md:text-5xl font-semibold">${discountedPrice.toFixed(2)}</h2>
-            {discountedPrice < ORIGINAL_PRICE && (
-              <span className="text-lg md:text-xl line-through text-gray-500">${ORIGINAL_PRICE.toFixed(2)}</span>
-            )}
-            <p className="font-medium text-sm md:text-base">/month</p>
-          </div>
-          <ul className="flex flex-col gap-1 text-sm md:text-base">
-            <li className="flex items-center gap-x-2 py-1">
-              <span className="inline-block w-5 h-5 rounded-full bg-black/90" />
-              <p className="font-medium">Build unlimited apps and websites</p>
-            </li>
-            <li className="flex items-center gap-x-2 py-1">
-              <span className="inline-block w-5 h-5 rounded-full bg-black/80" />
-              <p className="font-medium">No messages or tokens limits</p>
-            </li>
-            <li className="flex items-center gap-x-2 py-1">
-              <Globe size={20} className="shrink-0" />
-              <p className="font-medium">Fast deploy online.</p>
-            </li>
-          </ul>
-
-          <div className="mt-auto">
-            {isSubscriptionValid ? (
-              <button
-                style={{ border: "1px solid #eee" }}
-                className="w-full h-[40px] md:h-[48px] max-w-[300px] opacity-[0.6] pointer-events-none rounded-[15px] bg-white flex items-center justify-center text-sm md:text-base"
-              >
-                Subscribed {timeLeftString}
-              </button>
-            ) : (
-              currentUid && (
-                <PayPalScriptProvider
-                  options={{
-                    clientId: "AVrI1_PndcFEeGuj8PH9qyOQofIy0_MaSNaOZwstDJQZWW6bhc-CRnEcpAqi6fzonlA2pjo-9W-bBG5H",
-                    currency: "USD",
-                    intent: "capture",
-                  }}
-                >
-                  <PayPalButtons
-                    style={{ layout: "vertical", height: 48 }}
-                    createOrder={(data, actions) =>
-                      actions.order.create({
-                        intent: "CAPTURE",
-                        purchase_units: [{ amount: { currency_code: "USD", value: discountedPrice.toFixed(2) } }],
-                      })
-                    }
-                    onApprove={async (data, actions) => {
-                      const details = await actions.order?.capture()
-                      if (details && currentUid) {
-                        alert("Transaction completed by " + (details.payer?.name?.given_name || "user"))
-                        await activatePaid()
-                      } else {
-                        setError("La transaction PayPal a échoué.")
-                      }
-                    }}
-                    onError={(err) => {
-                      console.error("PayPal Error:", err)
-                      setError("Une erreur est survenue avec PayPal. Veuillez réessayer.")
-                    }}
-                  />
-                </PayPalScriptProvider>
-              )
-            )}
-          </div>
-        </div>
-
-        {/* Discount column */}
-        <div className="h-[90%] flex flex-col gap-2 p-3 w-[90%] lg:w-[40%] md:w-[40%] border border-[#EEE] rounded-[20px]">
-          <h1 className="text-2xl md:text-3xl font-semibold">Apply Discount.</h1>
-          <p className="text-sm md:text-base text-[#888]">
-            Apply a discount code to reduce the amount for your next billing cycle.
-          </p>
-          <div>
-            <input
-              type="text"
-              placeholder="Discount Code"
-              value={discountCode}
-              onChange={(e) => setDiscountCode(e.target.value)}
-              className="w-full px-3 py-3 bg-white border-2 border-[#EEE] placeholder:text-gray-500 focus-visible:border-blue-500 rounded-[12px] text-sm md:text-base mb-2"
-              disabled={isSubscriptionValid}
-            />
-          </div>
-          {discountMessage && (
-            <p className={`text-xs md:text-sm mb-2 ${appliedDiscountInfo ? "text-green-600" : "text-[#888]"}`}>
-              {discountMessage}
-            </p>
-          )}
-          <button
-            onClick={handleApplyDiscount}
-            className={`w-full h-[40px] md:h-[48px] max-w-[300px] text-white rounded-[12px] bg-black flex items-center justify-center text-sm md:text-base ${
-              isSubscriptionValid ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-800"
-            }`}
-            disabled={isSubscriptionValid}
-          >
-            Apply Code
-          </button>
         </div>
       </div>
 
-      {/* Trial timer */}
-      {isSubscriptionValid && timeRemaining && timeRemaining > 0 && (
-        <div className="fixed bottom-5 right-4 p-4 h-auto flex flex-col gap-2 w-[260px] border border-[#EEE] rounded-[15px] bg-white shadow-md">
-          <div>
-            <p className="font-semibold text-sm">
-              <span className="text-sm">🚀</span> Your trial ends{" "}
-              {formatDistanceToNow(new Date(Date.now() + timeRemaining), { addSuffix: true })}
-            </p>
+      <div className="pt-16 min-h-screen flex items-center justify-center p-4">
+        <div className="max-w-4xl w-full">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold mb-2">Upgrade to Pro</h1>
+            <p className="text-gray-600">Unlock unlimited design extraction and advanced features</p>
           </div>
-          <div className="flex gap-1 justify-center w-full items-center">
+
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+              <div className="flex items-center gap-3 mb-4">
+                <h2 className="text-2xl font-bold">Pro Plan</h2>
+                <div className="bg-black text-white px-3 py-1 rounded-full text-sm font-medium">Upgrade</div>
+              </div>
+
+              <div className="flex items-baseline gap-2 mb-6">
+                <span className="text-4xl font-bold">${discountedPrice.toFixed(2)}</span>
+                {discountedPrice < ORIGINAL_PRICE && (
+                  <span className="text-xl line-through text-gray-400">${ORIGINAL_PRICE.toFixed(2)}</span>
+                )}
+                <span className="text-gray-600">/month</span>
+              </div>
+
+              <ul className="space-y-3 mb-8">
+                <li className="flex items-center gap-3">
+                  <div className="w-2 h-2 bg-black rounded-full"></div>
+                  <span>Build unlimited apps and websites</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <div className="w-2 h-2 bg-black rounded-full"></div>
+                  <span>No messages or tokens limits</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Globe size={16} />
+                  <span>Fast deploy online</span>
+                </li>
+              </ul>
+
+              <div className="mt-auto">
+                {isSubscriptionValid ? (
+                  <button className="w-full h-12 bg-gray-100 text-gray-500 rounded-xl font-medium cursor-not-allowed">
+                    Subscribed {timeLeftString}
+                  </button>
+                ) : (
+                  currentUid && (
+                    <PayPalScriptProvider
+                      options={{
+                        clientId: "AVrI1_PndcFEeGuj8PH9qyOQofIy0_MaSNaOZwstDJQZWW6bhc-CRnEcpAqi6fzonlA2pjo-9W-bBG5H",
+                        currency: "USD",
+                        intent: "capture",
+                      }}
+                    >
+                      <PayPalButtons
+                        style={{ layout: "vertical", height: 48 }}
+                        createOrder={(data, actions) =>
+                          actions.order.create({
+                            intent: "CAPTURE",
+                            purchase_units: [{ amount: { currency_code: "USD", value: discountedPrice.toFixed(2) } }],
+                          })
+                        }
+                        onApprove={async (data, actions) => {
+                          const details = await actions.order?.capture()
+                          if (details && currentUid) {
+                            alert("Transaction completed by " + (details.payer?.name?.given_name || "user"))
+                            await activatePaid()
+                          } else {
+                            setError("La transaction PayPal a échoué.")
+                          }
+                        }}
+                        onError={(err) => {
+                          console.error("PayPal Error:", err)
+                          setError("Une erreur est survenue avec PayPal. Veuillez réessayer.")
+                        }}
+                      />
+                    </PayPalScriptProvider>
+                  )
+                )}
+              </div>
+            </div>
+
+            <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+              <h2 className="text-2xl font-bold mb-2">Apply Discount</h2>
+              <p className="text-gray-600 mb-6">
+                Apply a discount code to reduce the amount for your next billing cycle.
+              </p>
+
+              <div className="space-y-4">
+                <input
+                  type="text"
+                  placeholder="Enter discount code"
+                  value={discountCode}
+                  onChange={(e) => setDiscountCode(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+                  disabled={isSubscriptionValid}
+                />
+
+                {discountMessage && (
+                  <p className={`text-sm ${appliedDiscountInfo ? "text-green-600" : "text-gray-600"}`}>
+                    {discountMessage}
+                  </p>
+                )}
+
+                <button
+                  onClick={handleApplyDiscount}
+                  className={`w-full h-12 bg-black text-white rounded-xl font-medium transition-colors ${
+                    isSubscriptionValid ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-800"
+                  }`}
+                  disabled={isSubscriptionValid}
+                >
+                  Apply Code
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {isSubscriptionValid && timeRemaining && timeRemaining > 0 && (
+        <div className="fixed bottom-6 right-6 bg-white border border-gray-200 rounded-xl p-4 shadow-lg max-w-xs">
+          <p className="font-medium text-sm mb-3">
+            Trial ends {formatDistanceToNow(new Date(Date.now() + timeRemaining), { addSuffix: true })}
+          </p>
+          <div className="flex gap-1">
             {[...Array(4)].map((_, index) => {
-              const totalTime = 30 * 24 * 60 * 60 * 1000
+              const totalTime = 3 * 24 * 60 * 60 * 1000 // 3 days
               const timeElapsed = totalTime - timeRemaining
               const progress = Math.min(1, timeElapsed / totalTime)
               const barProgress = Math.min(1, Math.max(0, progress * 4 - index))
               return (
-                <div key={index} className="h-[5px] flex-1 rounded-[8px] bg-[#EEE] overflow-hidden">
+                <div key={index} className="h-2 flex-1 rounded-full bg-gray-200 overflow-hidden">
                   <div
-                    className="h-full bg-black transition-all duration-300 ease-out"
+                    className="h-full bg-black transition-all duration-300"
                     style={{ width: `${barProgress * 100}%` }}
                   />
                 </div>
@@ -326,9 +333,8 @@ export default function SubscriptionPage() {
         </div>
       )}
 
-      {/* Error bubble */}
       {error && (
-        <div className="fixed bottom-5 left-4 p-3 text-sm border border-red-200 bg-red-50 text-red-700 rounded-md shadow">
+        <div className="fixed bottom-6 left-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl shadow-lg max-w-sm">
           {error}
         </div>
       )}
