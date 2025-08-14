@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Globe, Copy, Download, LogOut } from "lucide-react"
+import { Globe, ArrowUp, Copy, Download, LogOut } from "lucide-react"
 import { motion, useReducedMotion } from "framer-motion"
 import { Bodoni_Moda } from "next/font/google"
 import {
@@ -14,6 +14,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { type auth, onAuth, logout } from "@/lib/firebase"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -221,23 +223,18 @@ export default function SiteInspector() {
   const [showExportModal, setShowExportModal] = useState(false)
   const [selectedFramework, setSelectedFramework] = useState<FrameworkKey>("next")
   const [generatedFilename, setGeneratedFilename] = useState<string>("")
-  const [generatedCode, setGeneratedCode] = useState<{ HTML: string; CSS: string; JS: string } | null>(null)
+  const [generatedCode, setGeneratedCode] = useState<string>("")
   const [showCodePreview, setShowCodePreview] = useState<boolean>(false)
-  const [copySuccess, setCopySuccess] = useState(false)
-  const [showFrameworkDialog, setShowFrameworkDialog] = useState(false)
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [analysisStep, setAnalysisStep] = useState("")
 
   // Demo urls and cards
-  const proposalUrls = ["cursor.com", "framer.com", "lovable.dev", "linear.app", "notion.com"]
-  const proposalUrlsWithImages = ["playerzero.ai", "apresentforce.com", "portfolite.framer.website"]
+  const proposalUrls = ["cosmos.so", "stripe.com", "linear.app"]
   const proposalUrlImages: Record<string, string> = {
-    "playerzero.ai":
+    "cosmos.so":
       "https://fra.cloud.appwrite.io/v1/storage/buckets/68968fe8001266b9f411/files/68969cd6000b7adb25e0/view?project=68802a5d00297352e520&mode=admin",
-    "apresentforce.com":
+    "stripe.com":
       "https://fra.cloud.appwrite.io/v1/storage/buckets/68968fe8001266b9f411/files/68969d45000bcf13ad68/view?project=68802a5d00297352e520&mode=admin",
-    "portfolite.framer.website":
-      "https://fra.cloud.appwrite.io/v1/storage/buckets/68968fe8001266b9f411/files/689e40cd000ed8efd26d/view?project=68802a5d00297352e520&mode=admin",
+    "linear.app":
+      "https://fra.cloud.appwrite.io/v1/storage/buckets/68968fe8001266b9f411/files/68969d55000989225796/view?project=68802a5d00297352e520&mode=admin",
   }
 
   const createDownloadLink = (content: string, filename: string, mimeType: string) => {
@@ -445,42 +442,12 @@ export default function SiteInspector() {
     }
   }
 
-  // Analysis status messages
-  const [analysisStatus, setAnalysisStatus] = useState<string>("")
-
-  const analysisMessages = [
-    "Starting analysis...",
-    "Extracting design elements...",
-    "Capturing animations...",
-    "Processing styles...",
-    "All set! View your extracted design",
-  ]
-
-  const showAnalysisProgress = () => {
-    let messageIndex = 0
-    const interval = setInterval(() => {
-      if (messageIndex < analysisMessages.length - 1) {
-        setAnalysisStatus(analysisMessages[messageIndex])
-        messageIndex++
-      } else {
-        setAnalysisStatus(analysisMessages[analysisMessages.length - 1])
-        clearInterval(interval)
-      }
-    }, 1500)
-  }
-
-  const analyzeSite = async (urlToAnalyze: string) => {
+  const analyzeSite = async (urlToAnalyze = url) => {
+    if (!urlToAnalyze) return
     setLoading(true)
+    setError(null)
     setResult(null)
-    setError("")
     setCopyStatus(null)
-    setAnalysisStatus("")
-    setIsAnalyzing(true)
-    setAnalysisStep(analysisMessages[0])
-
-    // Start progress messages
-    showAnalysisProgress()
-
     try {
       const MAX_SITE_FETCH_ATTEMPTS = 10
       for (let attempt = 1; attempt <= MAX_SITE_FETCH_ATTEMPTS; attempt++) {
@@ -681,41 +648,28 @@ export default function SiteInspector() {
             animationFiles,
             requiredCdnUrls: allCdnUrls,
           })
-
-          const extractedHTML = cleanedHTML
-          const extractedCSS = fullCSS
-          const extractedJS = fullJS
-
-          setGeneratedCode({
-            HTML: extractedHTML,
-            CSS: extractedCSS,
-            JS: extractedJS,
-          })
           setLoading(false)
-          setIsAnalyzing(false)
           return
-        } catch (err: any) {
+        } catch (err) {
           if (attempt === MAX_SITE_FETCH_ATTEMPTS) {
             setError("⌐ Analysis failed after multiple attempts.")
             setLoading(false)
-            setIsAnalyzing(false)
           } else {
             await new Promise((res) => setTimeout(res, 2000))
           }
         }
       }
-    } catch (err: any) {
+    } catch (err) {
       setError(`Analysis failed: ${err instanceof Error ? err.message : String(err)}`)
       setLoading(false)
-      setIsAnalyzing(false)
     }
   }
 
-  const redirectToAuthFn = () => router.push("/signup")
+  const redirectToAuth = () => router.push("/signup")
 
-  const handleAnalyzeClickFn = () => {
+  const handleAnalyzeClick = () => {
     if (!user) {
-      redirectToAuthFn()
+      router.push("/signup")
       return
     }
     if (!isSubscriptionValid()) {
@@ -723,10 +677,10 @@ export default function SiteInspector() {
       return
     }
     // Continue with analysis...
-    analyzeSite(url)
+    analyzeSite()
   }
 
-  const handleProposalClickFn = (proposalUrl: string) => {
+  const handleProposalClick = (proposalUrl: string) => {
     if (!user) {
       router.push("/signup")
       return
@@ -818,507 +772,455 @@ export default function App() {
         return {
           filename: "src/routes/preview/+page.svelte",
           code: `<script>
-  import { onMount } from 'svelte'
+  import { onMount } from "svelte";
   onMount(() => {
-    const style = document.createElement('style'); style.id='extracted-styles'; style.textContent=\`${CSS}\`; document.head.appendChild(style)
-    const script = document.createElement('script'); script.id='extracted-scripts'; script.innerHTML=\`${JS}\`; document.body.appendChild(script)
-    return () => { try { style.remove(); script.remove(); } catch {} }
-  })
+    const style = document.createElement("style"); style.id="extracted-styles"; style.textContent=\`${CSS}\`; document.head.appendChild(style);
+    const script = document.createElement("script"); script.id="extracted-scripts"; script.innerHTML=\`${JS}\`; document.body.appendChild(script);
+    return () => { try { style.remove(); script.remove(); } catch {} };
+  });
 </script>
-{@html \`${HTML}\`}
+<div>{@html \`${HTML}\`}</div>
 `,
         }
       case "vue-vite":
         return {
-          filename: "src/components/Preview.vue",
-          code: `<template>
-  <div v-html="htmlContent"></div>
-</template>
-<script setup>
-import { onMounted, onUnmounted } from 'vue'
-const htmlContent = \`${HTML}\`
+          filename: "src/App.vue",
+          code: `<script setup>
+import { onMounted } from "vue";
 onMounted(() => {
-  const style = document.createElement('style'); style.id='extracted-styles'; style.textContent=\`${CSS}\`; document.head.appendChild(style)
-  const script = document.createElement('script'); script.id='extracted-scripts'; script.innerHTML=\`${JS}\`; document.body.appendChild(script)
-})
-onUnmounted(() => { try { document.getElementById('extracted-styles')?.remove(); document.getElementById('extracted-scripts')?.remove(); } catch {} })
+  const style = document.createElement("style"); style.id="extracted-styles"; style.textContent=\`${CSS}\`; document.head.appendChild(style);
+  const script = document.createElement("script"); script.id="extracted-scripts"; script.innerHTML=\`${JS}\`; document.body.appendChild(script);
+  return () => { try { style.remove(); script.remove(); } catch {} };
+});
 </script>
+<template><div v-html="\`${HTML}\`"></div></template>
 `,
         }
       case "nuxt":
         return {
           filename: "pages/preview.vue",
-          code: `<template>
-  <div v-html="htmlContent"></div>
-</template>
-<script setup>
-const htmlContent = \`${HTML}\`
+          code: `<script setup>
+import { onMounted } from "vue";
 onMounted(() => {
-  const style = document.createElement('style'); style.id='extracted-styles'; style.textContent=\`${CSS}\`; document.head.appendChild(style)
-  const script = document.createElement('script'); script.id='extracted-scripts'; script.innerHTML=\`${JS}\`; document.body.appendChild(script)
-})
-onUnmounted(() => { try { document.getElementById('extracted-styles')?.remove(); document.getElementById('extracted-scripts')?.remove(); } catch {} })
+  const style = document.createElement("style"); style.id="extracted-styles"; style.textContent=\`${CSS}\`; document.head.appendChild(style);
+  const script = document.createElement("script"); script.id="extracted-scripts"; script.innerHTML=\`${JS}\`; document.body.appendChild(script);
+  return () => { try { style.remove(); script.remove(); } catch {} };
+});
 </script>
+<template><div v-html="\`${HTML}\`"></div></template>
 `,
         }
       case "html":
-      default:
         return {
           filename: "index.html",
           code: `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Combined Export</title><style>
+${result.fullCSS}
+</style></head><body>
+${result.fullHTML}
+<script>
+${result.fullJS}
+</script></body></html>`,
+        }
+      default:
+        return { filename: "", code: "" }
+    }
+  }
+
+  useEffect(() => {
+    if (!result) return
+    const { filename, code } = gen(selectedFramework)
+    setGeneratedFilename(filename)
+    setGeneratedCode(code)
+  }, [selectedFramework, result])
+
+  const buildJsxPrompt = (): string => {
+    if (!result) return ""
+    const { filename, code } = gen("vite-react")
+    const libs =
+      result.requiredCdnUrls && result.requiredCdnUrls.length
+        ? `Detected external libraries (CDN):\n${result.requiredCdnUrls.join("\n")}\n\n`
+        : ""
+    return `You are given a complete, ready-to-use React JSX implementation. Use it EXACTLY as provided, with no changes or omissions. Only make surgical fixes if the compiler throws an error on specific lines while building; do not refactor, do not change structure or styling, and do not add or remove features.
+
+Project file to create: ${filename}
+
+${libs}Complete source code (paste as-is):
+\`\`\`jsx
+${code}
+\`\`\`
+
+Important:
+- Do NOT extract or separate HTML/CSS/JS. The code is already fully integrated in JSX.
+- Do NOT rewrite into a different framework.
+- If you encounter a compile/runtime error, fix only the minimal lines needed without changing the overall code.`
+  }
+
+  const handleCopyPrompt = () => {
+    if (!result) return
+    const prompt = buildJsxPrompt()
+    if (!prompt) return
+    copyToClipboard(prompt, "prompt")
+  }
+
+  const handleDownloadPrompt = () => {
+    if (!result) return
+    const prompt = buildJsxPrompt()
+    if (!prompt) return
+    createDownloadLink(prompt, "prompt-react-jsx.txt", "text/plain")
+  }
+
+  const createOptimizedPreview = () => {
+    if (!result) return ""
+    const escapeForScript = (s: string) => s.replace(/<\/script>/gi, "<\\/script>")
+    const escapeForStyle = (s: string) => s.replace(/<\/style>/gi, "<\\/style>")
+
+    const cdnTags = result.requiredCdnUrls
+      .map((url) =>
+        url.endsWith(".css")
+          ? `    <link rel="stylesheet" href="${url}" crossorigin="anonymous">`
+          : `    <script src="${url}" crossorigin="anonymous"></script>`,
+      )
+      .join("\n")
+
+    const animationCSSRaw = result.animationFiles
+      .filter((f) => f.type === "css")
+      .map((f) => f.content)
+      .join("\n\n")
+    const animationJSRaw = result.animationFiles
+      .filter((f) => f.type === "js")
+      .map((f) => f.content)
+      .join("\n\n")
+
+    const animationInitScriptRaw = `async function initializeAnimations(){await new Promise(r=>setTimeout(r,2000));if(typeof gsap!=='undefined'){try{gsap.set("*",{clearProps:"all"});const E=document.querySelectorAll('h1,h2,h3,.hero,.title,[class*="fade"],[class*="slide"],[class*="animate"]');if(E.length>0){gsap.from(E,{opacity:0,y:50,duration:1,stagger:0.1,ease:"power2.out"})}if(typeof ScrollTrigger!=='undefined'){gsap.registerPlugin(ScrollTrigger);gsap.utils.toArray('[data-scroll], .scroll-trigger').forEach(el=>{gsap.from(el,{opacity:0,y:100,duration:1,scrollTrigger:{trigger:el,start:"top 80%",end:"bottom 20%",toggleActions:"play none none reverse"}})})}}catch(e){}}if(typeof THREE!=='undefined'){const canvas=document.querySelector('canvas')||document.querySelector('#three-canvas');if(canvas){try{const scene=new THREE.Scene();const camera=new THREE.PerspectiveCamera(75,canvas.clientWidth/canvas.clientHeight,0.1,1000);const renderer=new THREE.WebGLRenderer({canvas:canvas,alpha:true});renderer.setSize(canvas.clientWidth,canvas.clientHeight);const geometry=new THREE.BufferGeometry();const vertices=[];for(let i=0;i<1000;i++){vertices.push((Math.random()-0.5)*2000,(Math.random()-0.5)*2000,(Math.random()-0.5)*2000)}geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));const material=new THREE.PointsMaterial({color:0xffffff,size:2});const particles=new THREE.Points(geometry,material);scene.add(particles);camera.position.z=1000;function animate(){requestAnimationFrame(animate);particles.rotation.x+=0.001;particles.rotation.y+=0.001;renderer.render(scene,camera)}animate()}catch(e){}}}if(typeof AOS!=='undefined'){try{AOS.init({duration:1000,once:false,mirror:true,offset:100})}catch(e){}}if(typeof lottie!=='undefined'){try{document.querySelectorAll('[data-lottie], .lottie, [data-animation-path]').forEach(el=>{const path=el.dataset.lottie||el.dataset.animationPath;if(path){lottie.loadAnimation({container:el,renderer:'svg',loop:true,autoplay:true,path})}})}catch(e){}}}if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',initializeAnimations)}else{initializeAnimations()}`
+    const safeAnimationCSS = escapeForStyle(animationCSSRaw)
+    const safeFullCSS = escapeForStyle(result.fullCSS)
+    const safeAnimationJS = escapeForScript(animationJSRaw)
+    const safeInitScript = escapeForScript(animationInitScriptRaw)
+    const safeFullJS = escapeForScript(result.fullJS)
+
+    const previewHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Extracted Design</title>
-    <style>
-${CSS}
-    </style>
+  <base href="${result.baseURL}">
+  <title>UI preview</title>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+${cdnTags}
+  <style id="animation-styles">
+${safeAnimationCSS}
+  </style>
+  <style id="regular-styles">
+${safeFullCSS}
+  </style>
 </head>
 <body>
-${HTML}
-    <script>
-${JS}
-    </script>
-</body>
-</html>`,
-        }
+${result.fullHTML}
+<script>${safeInitScript}</script>
+<script>${safeAnimationJS}</script>
+<script>${safeFullJS}</script>
+</body></html>`
+    return previewHtml
+  }
+
+  const HeaderAction = () => {
+    if (!isAuthReady) return null
+    if (user) {
+      const email = user.email || "user"
+      const fallback = email.slice(0, 2).toUpperCase()
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="h-[32px] rounded-[13px] bg-transparent">
+              <Avatar className="h-6 w-6 mr-2">
+                <AvatarFallback>{fallback}</AvatarFallback>
+              </Avatar>
+              {email}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64">
+            {subscription && (
+              <div className="p-3 border-b">
+                <div className="text-sm font-medium mb-2">
+                  {subscription.subscriptionType === "trial" ? "Free Trial" : "$2.99/month"}
+                </div>
+                <div className="text-xs text-gray-600 mb-2">{getTimeRemaining()}</div>
+                <Progress value={getSubscriptionProgress()} className="h-2" />
+              </div>
+            )}
+            <DropdownMenuItem
+              onClick={async () => {
+                await logout()
+                router.replace("/")
+              }}
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )
     }
+    return (
+      <a
+        href="/signup"
+        className="h-[32px] w-auto px-5 text-sm flex items-center justify-center rounded-[13px] bg-black text-white font-semibold transition-opacity hover:opacity-90"
+      >
+        Sign up
+      </a>
+    )
   }
 
-  const buildSeparateFilesPrompt = () => {
-    if (!generatedCode) return ""
-
-    const { HTML, CSS, JS } = generatedCode
-
-    return `# Extracted Website Design - Copy & Paste Integration
-
-## IMPORTANT INSTRUCTIONS FOR AI ASSISTANTS:
-Your task is to COPY, PASTE, and ADAPT the provided code - NOT to recreate or approximate the design.
-
-### STRICT REQUIREMENTS:
-1. **PRESERVE ALL CSS CLASSES** - Do not modify, rename, or remove any CSS class names
-2. **MAINTAIN HTML STRUCTURE** - Keep all div elements, nesting, and hierarchy exactly as provided
-3. **COPY-PASTE APPROACH** - Simply integrate the provided code into your chosen framework
-4. **NO DESIGN CHANGES** - Do not attempt to "improve" or modify the visual design
-5. **FRAMEWORK ADAPTATION ONLY** - Only adapt syntax for your framework (React JSX, Vue template, etc.)
-
-## HTML STRUCTURE (Copy this exactly):
-\`\`\`html
-${HTML}
-\`\`\`
-
-## CSS STYLES (Copy this exactly):
-\`\`\`css
-${CSS}
-\`\`\`
-
-## JAVASCRIPT FUNCTIONALITY (Copy this exactly):
-\`\`\`javascript
-${JS}
-\`\`\`
-
-## INTEGRATION STEPS:
-1. Copy the HTML structure and adapt syntax for your framework (className for React, etc.)
-2. Copy the CSS into a separate stylesheet or style block
-3. Copy the JavaScript and integrate into your framework's script handling
-4. Ensure the CSS file is properly linked to your HTML/component
-5. Test that all animations and interactions work as expected
-
-## FRAMEWORK-SPECIFIC NOTES:
-- **React/Next.js**: Use className instead of class, integrate JS in useEffect
-- **Vue**: Use template syntax, integrate JS in mounted() or onMounted()
-- **Svelte**: Use Svelte syntax, integrate JS in onMount()
-- **Angular**: Use Angular template syntax, integrate JS in ngOnInit()
-
-Remember: Your goal is pixel-perfect reproduction, not interpretation or improvement.`
-  }
-
-  const downloadPrompt = () => {
-    const prompt = buildSeparateFilesPrompt()
-    const blob = new Blob([prompt], { type: "text/plain" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = "design-extraction-prompt.txt"
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }
-
-  const copyPrompt = async () => {
-    const prompt = buildSeparateFilesPrompt()
-    try {
-      await navigator.clipboard.writeText(prompt)
-      setCopySuccess(true)
-      setTimeout(() => setCopySuccess(false), 2000)
-    } catch (err) {
-      console.error("Failed to copy prompt:", err)
-    }
-  }
-
-  const downloadCode = () => {
-    if (!generatedCode) return
-
-    const selectedFile = gen(selectedFramework)
-    const blob = new Blob([selectedFile.code], { type: "text/plain" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = selectedFile.filename
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }
-
-  const frameworkOptions: Record<FrameworkKey, string> = {
-    next: "Next.js (App Router, TSX)",
-    remix: "Remix (TSX)",
-    astro: "Astro (.astro)",
-    "vite-react": "Vite (React, JSX)",
-    sveltekit: "SvelteKit (+page.svelte)",
-    "vue-vite": "Vue (Vite, SFC)",
-    nuxt: "Nuxt (pages/preview.vue)",
-    html: "HTML + CSS + JS (combined)",
-  }
-
-  const isSubscriptionValidFn = () => {
-    if (!subscription) return false
-    const now = new Date()
-    const expirationDate = new Date(subscription.expirationDate)
-    return now < expirationDate
-  }
-
-  const getTimeRemainingFn = () => {
-    if (!subscription) return "No subscription"
-    const now = new Date()
-    const expirationDate = new Date(subscription.expirationDate)
-    const diff = expirationDate.getTime() - now.getTime()
-
-    if (diff <= 0) return "Expired"
-
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-
-    if (days > 0) return `${days}d ${hours}h remaining`
-    if (hours > 0) return `${hours}h ${minutes}m remaining`
-    return `${minutes}m remaining`
-  }
-
-  const getSubscriptionProgressFn = () => {
-    if (!subscription) return 0
-    const now = new Date()
-    const createdDate = new Date(subscription.createdAt || subscription.$createdAt)
-    const expirationDate = new Date(subscription.expirationDate)
-    const totalDuration = expirationDate.getTime() - createdDate.getTime()
-    const elapsed = now.getTime() - createdDate.getTime()
-    const progress = Math.max(0, Math.min(100, (elapsed / totalDuration) * 100))
-    return progress
-  }
+  const inputPlaceholder = !user ? "Sign up to analyze (you'll be redirected)" : "https://example.com"
 
   const onInputFocus = () => {
     if (!user) {
       router.push("/signup")
     }
-  }
-
-  if (!isAuthReady) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    )
+    // Removed subscription check from input focus - only check when analyzing
   }
 
   return (
-    <div className="min-h-screen bg-white text-black">
-      {/* Header */}
-      <header className="border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-2">
-              <Globe className="h-6 w-6" />
-              <span className={`text-xl font-bold ${bodoni.className}`}>Floptas</span>
-            </div>
-
-            <div className="flex items-center space-x-4">
-              {user ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="flex items-center space-x-2 hover:bg-gray-100">
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback className="bg-black text-white text-sm">
-                          {user.email?.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm font-medium">{user.email}</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-80 p-4">
-                    <div className="space-y-4">
-                      <div className="text-center">
-                        <p className="font-medium text-sm">
-                          {subscription?.subscriptionType === "paid" ? "$2.99/month" : "Free Trial"}
-                        </p>
-                        <p className="text-xs text-gray-600 mt-1">{getTimeRemainingFn()}</p>
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-xs text-gray-600">
-                          <span>Usage</span>
-                          <span>{Math.round(getSubscriptionProgressFn())}%</span>
-                        </div>
-                        <Progress value={getSubscriptionProgressFn()} className="h-2" />
-                      </div>
-
-                      <DropdownMenuItem
-                        onClick={() => {
-                          logout()
-                          router.push("/signup")
-                        }}
-                        className="flex items-center space-x-2 cursor-pointer"
-                      >
-                        <LogOut className="h-4 w-4" />
-                        <span>Sign out</span>
-                      </DropdownMenuItem>
-                    </div>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
-                <Button onClick={() => router.push("/signup")} className="bg-black text-white hover:bg-gray-800">
-                  Sign up
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
+    <div className="min-h-screen bg-white overflow-hidden p-4 sm:p-8">
+      <header className="max-w-4xl mx-auto flex justify-between items-center mb-12">
+        <svg
+          className="h-[20px] w-[20px]"
+          width="36"
+          height="36"
+          viewBox="0 0 32 32"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="#111"
+        >
+          <rect x="0" y="0" width="32" height="32" rx="10" />
+        </svg>
+        <HeaderAction />
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Hero Section */}
-        <div className="text-center mb-16">
-          <h1 className={`text-4xl md:text-6xl font-bold mb-6 ${bodoni.className}`}>Extract Any Website Design</h1>
-          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-            Copy pixel-perfect designs from any website. Get clean HTML, CSS, and JavaScript ready for your AI assistant
-            to integrate.
+      <div className="max-w-4xl mx-auto p-6 sm:p-10 pb-20">
+        <div className="text-center mb-10">
+          <CircularText size={140} />
+          <h1 className={`${bodoni.className} text-5xl sm:text-7xl md:text-8xl leading-[1.05] text-black mb-4`}>
+            Clone your favorite website design.
+          </h1>
+          <p className="text-lg text-gray-600 max-w-xl mx-auto">
+            Paste a URL, launch the process, and instantly get a pixel-perfect replica of any website&apos;s design.
           </p>
+        </div>
 
-          {/* URL Input */}
-          <div className="max-w-2xl mx-auto mb-8">
-            <div className="flex gap-2">
-              <input
-                type="url"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                onFocus={onInputFocus}
-                placeholder="Enter website URL to extract design..."
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
-                disabled={isAnalyzing}
-              />
-              <Button
-                onClick={handleAnalyzeClickFn}
-                disabled={!url || isAnalyzing}
-                className="px-6 py-3 bg-black text-white hover:bg-gray-800 disabled:opacity-50"
-              >
-                {isAnalyzing ? "Analyzing..." : "Extract"}
-              </Button>
+        <div className="h-[45px] w-[90%] sm:w-[400px] ring-5 ring-[#eee] rounded-[12px] flex items-center p-1 mx-auto mb-4">
+          <div className="h-full w-full bg-[#fff] ring-4 ring-[#FAFAFA] rounded-[12px] flex items-center p-1 ">
+            <div className="p-2">
+              <Globe size={20} className="text-black" />
             </div>
-
-            {/* Analysis Progress */}
-            {isAnalyzing && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-4 text-center">
-                <motion.p
-                  key={analysisStep}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="text-sm text-gray-600"
-                >
-                  {analysisStep}
-                </motion.p>
-              </motion.div>
-            )}
+            <input
+              type="text"
+              placeholder={inputPlaceholder}
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              onFocus={onInputFocus}
+              className={`flex-grow h-full bg-transparent text-black focus:outline-none focus:ring-0 placeholder-[#888] text-sm`}
+            />
+            <button
+              onClick={handleAnalyzeClick}
+              disabled={loading}
+              className="h-[35px] w-[35px] bg-[#111] rounded-[8px] flex items-center justify-center flex-shrink-0 transition-opacity disabled:opacity-70 disabled:cursor-not-allowed mr-1"
+            >
+              {loading ? (
+                <div className="bg-white rounded-[6px] w-4 h-4 animate-pulse" />
+              ) : (
+                <ArrowUp size={20} className="text-white" />
+              )}
+            </button>
           </div>
         </div>
 
-        {/* Proposal URLs Section 1 */}
-        <div className="mb-16">
-          <h2 className="text-2xl font-bold text-center mb-8">Popular Design Inspirations</h2>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 max-w-4xl mx-auto">
-            {[
-              { name: "cursor.com", url: "https://cursor.com" },
-              { name: "framer.com", url: "https://framer.com" },
-              { name: "lovable.dev", url: "https://lovable.dev" },
-              { name: "linear.app", url: "https://linear.app" },
-              { name: "notion.com", url: "https://notion.com" },
-            ].map((site) => (
+        {/* Try chips */}
+        {!loading && !result && (
+          <div className="flex justify-center items-center gap-3 flex-wrap mb-6">
+            <span className="text-sm text-gray-500">Try:</span>
+            {proposalUrls.map((pUrl) => (
               <button
-                key={site.name}
-                onClick={() => handleProposalClickFn(site.url)}
-                className="p-4 border border-gray-200 rounded-lg hover:border-black transition-colors text-center"
-                disabled={isAnalyzing}
+                key={pUrl}
+                onClick={() => handleProposalClick(pUrl)}
+                className="h-[30px] w-auto bg-[#FAFAFA] rounded-[12px] flex items-center px-2 transition-transform hover:scale-105"
               >
-                <div className="font-medium text-sm">{site.name}</div>
+                <img
+                  src={
+                    proposalUrlImages[pUrl] ||
+                    " /placeholder.svg?height=16&width=16&query=proposal%20preview%20thumbnail" ||
+                    "/placeholder.svg" ||
+                    "/placeholder.svg" ||
+                    "/placeholder.svg" ||
+                    "/placeholder.svg" ||
+                    "/placeholder.svg"
+                  }
+                  alt={`${pUrl} preview`}
+                  className="h-4 w-4 rounded-[4px] mr-2 object-cover"
+                />
+                <Globe size={14} className="text-black mr-2" />
+                <p className="text-sm text-gray-700">{pUrl}</p>
+                <ArrowUp size={16} className="text-black ml-2" />
               </button>
             ))}
           </div>
-        </div>
+        )}
 
-        {/* Infinite Logo Slider */}
-        <div className="mb-16 overflow-hidden">
-          <div className="flex animate-scroll">
-            <div className="flex space-x-8 animate-scroll">
-              {[...Array(2)].map((_, i) => (
-                <div key={i} className="flex space-x-8 shrink-0">
-                  <img src="/images/logos/cursor-text.svg" alt="Cursor" className="h-8 opacity-60" />
-                  <img src="/images/logos/v0.svg" alt="v0" className="h-8 opacity-60" />
-                  <img src="/images/logos/replit-text.svg" alt="Replit" className="h-8 opacity-60" />
-                  <img src="/images/logos/windsurf-text.svg" alt="Windsurf" className="h-8 opacity-60" />
-                  <img src="/images/logos/trae-text.svg" alt="Trae" className="h-8 opacity-60" />
+        {/* RESTORED: Proposal cards grid */}
+        {!loading && !result && (
+          <div className="flex justify-center">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-12">
+              {proposalUrls.map((pUrl) => (
+                <div
+                  key={pUrl}
+                  onClick={() => handleProposalClick(pUrl)}
+                  className="h-[300px] w-[300px] flex items-center border border-[#eee] rounded-[10px] relative cursor-pointer overflow-hidden bg-white"
+                >
+                  <img
+                    className="h-full w-full object-contain"
+                    src={
+                      proposalUrlImages[pUrl] || "/placeholder.svg?height=300&width=300&query=site%20image%20preview"
+                    }
+                    alt={`${pUrl} site image`}
+                  />
+                  <div className="absolute bottom-1 left-1 z-[1]">
+                    <button className="w-auto backdrop-blur-3xl rounded-[12px] flex items-center px-2 transition-transform hover:scale-105 bg-white/70">
+                      <p className="text-[10px] text-black font-semibold">{pUrl}</p>
+                      <ArrowUp size={16} className="text-black ml-2" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Proposal URLs Section 2 */}
-        <div className="mb-16">
-          <h2 className="text-2xl font-bold text-center mb-8">Featured Websites</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            {[
-              {
-                name: "playerzero.ai",
-                url: "https://playerzero.ai",
-                image: "/placeholder.svg?height=200&width=300",
-              },
-              {
-                name: "apresentforce.com",
-                url: "https://apresentforce.com",
-                image: "/placeholder.svg?height=200&width=300",
-              },
-              {
-                name: "portfolite.framer.website",
-                url: "https://portfolite.framer.website/",
-                image:
-                  "https://fra.cloud.appwrite.io/v1/storage/buckets/68968fe8001266b9f411/files/689e40cd000ed8efd26d/view?project=68802a5d00297352e520&mode=admin",
-              },
-            ].map((site) => (
-              <button
-                key={site.name}
-                onClick={() => handleProposalClickFn(site.url)}
-                className="group border border-gray-200 rounded-lg overflow-hidden hover:border-black transition-colors"
-                disabled={isAnalyzing}
-              >
-                <div className="aspect-video bg-gray-100">
-                  <img
-                    src={site.image || "/placeholder.svg"}
-                    alt={site.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                </div>
-                <div className="p-4">
-                  <div className="font-medium text-sm">{site.name}</div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
+        {!loading && !result && <LogoMarquee />}
 
-        {/* Results Section */}
-        {generatedCode && (
-          <div className="mt-16 border-t border-gray-200 pt-16">
-            <h2 className="text-2xl font-bold text-center mb-8">Extracted Design Preview</h2>
+        {error && <p className="text-red-600 bg-red-50 p-3 rounded-lg text-center mb-6">{error}</p>}
 
-            {/* Preview */}
-            <div className="mb-8">
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-red-400 rounded-full"></div>
-                    <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
-                    <div className="w-3 h-3 bg-green-400 rounded-full"></div>
-                    <span className="text-sm text-gray-600 ml-4">{url}</span>
-                  </div>
-                </div>
-                <div className="bg-white">
-                  <iframe
-                    srcDoc={`
-                      <!DOCTYPE html>
-                      <html>
-                        <head>
-                          <style>${generatedCode.CSS}</style>
-                        </head>
-                        <body>
-                          ${generatedCode.HTML}
-                          <script>${generatedCode.JS}</script>
-                        </body>
-                      </html>
-                    `}
-                    className="w-full h-96 border-0"
-                    title="Preview"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button onClick={copyPrompt} className="bg-black text-white hover:bg-gray-800">
-                <Copy className="mr-2 h-4 w-4" />
-                {copySuccess ? "Copied!" : "Copy Prompt"}
-              </Button>
-              <Button
-                onClick={downloadPrompt}
-                variant="outline"
-                className="border-black text-black hover:bg-gray-100 bg-transparent"
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Download Prompt
-              </Button>
-              <Button
-                onClick={() => setShowFrameworkDialog(true)}
-                variant="outline"
-                className="border-black text-black hover:bg-gray-100"
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Download Code
-              </Button>
+        {result && (
+          <div className="space-y-12">
+            <div>
+              <h3 className="text-2xl font-bold text-black mb-4">UI preview</h3>
+              <iframe
+                title="UI preview"
+                className="w-full h-96 border border-gray-200 rounded-xl bg-white"
+                srcDoc={createOptimizedPreview()}
+                sandbox="allow-scripts allow-same-origin"
+              />
             </div>
           </div>
         )}
-      </main>
+      </div>
 
-      {/* Framework Selection Dialog */}
-      <Dialog open={showFrameworkDialog} onOpenChange={setShowFrameworkDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Choose Framework</DialogTitle>
-            <DialogDescription>Select the framework format for your downloaded code.</DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-2 gap-2 py-4">
-            {Object.entries(frameworkOptions).map(([key, label]) => (
+      {result && (
+        <div className="fixed bottom-0 left-0 right-0 p-4 flex justify-center">
+          <div className="flex items-center gap-3">
+            <div className="h-[40px] w-auto flex items-center rounded-[14px] bg-white shadow-md border border-[#e5e5e5]">
               <Button
-                key={key}
-                variant={selectedFramework === key ? "default" : "outline"}
-                onClick={() => setSelectedFramework(key as FrameworkKey)}
-                className="text-left justify-start"
+                onClick={handleCopyPrompt}
+                variant="ghost"
+                className="h-[38px] rounded-[12px] text-sm font-medium px-4"
               >
-                {label}
+                <Copy className="mr-2 h-4 w-4" />
+                Copy JSX prompt
               </Button>
-            ))}
+            </div>
+            <div className="h-[40px] w-auto flex items-center rounded-[14px] bg-white shadow-md border border-[#e5e5e5]">
+              <Button
+                onClick={handleDownloadPrompt}
+                variant="ghost"
+                className="h-[38px] rounded-[12px] text-sm font-medium px-4"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Download prompt
+              </Button>
+            </div>
+            <div className="h-[40px] w-auto flex items-center rounded-[14px] bg-white shadow-md border border-[#e5e5e5]">
+              <Button
+                onClick={() => setShowExportModal(true)}
+                variant="ghost"
+                className="h-[38px] rounded-[12px] text-sm font-medium px-4"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Download code
+              </Button>
+            </div>
+            {copyStatus?.id === "prompt" && (
+              <span className="text-sm text-green-600 bg-green-50 px-3 py-1 rounded-md">{copyStatus.message}</span>
+            )}
           </div>
-          <DialogFooter>
+        </div>
+      )}
+
+      <Dialog open={showExportModal} onOpenChange={setShowExportModal}>
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Export code</DialogTitle>
+            <DialogDescription>
+              Select a framework and preview the single-file export. Then download or copy it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="framework">Framework</Label>
+                <select
+                  id="framework"
+                  className="w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm"
+                  value={selectedFramework}
+                  onChange={(e) => setSelectedFramework(e.target.value as FrameworkKey)}
+                >
+                  {Object.entries(frameworkLabel).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label className="inline-flex items-center justify-between w-full">
+                  <span>View code</span>
+                  <Switch checked={showCodePreview} onCheckedChange={setShowCodePreview} />
+                </Label>
+                <input
+                  readOnly
+                  value={generatedFilename}
+                  className="w-full h-10 rounded-md border border-gray-200 bg-gray-50 px-3 text-xs"
+                />
+              </div>
+            </div>
+            {showCodePreview && (
+              <div className="rounded-lg border bg-[#0b0c10] border-gray-800 overflow-hidden">
+                <div className="px-3 py-2 text-xs text-gray-300 bg-[#0f1117] border-b border-gray-800 flex justify-between">
+                  <span>{generatedFilename}</span>
+                  <span className="text-gray-500">readonly preview</span>
+                </div>
+                <pre className="max-h-[420px] overflow-auto text-xs leading-5 p-4 text-gray-100">
+                  <code>{generatedCode}</code>
+                </pre>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => copyToClipboard(generatedCode, "export-code")}
+              disabled={!generatedCode}
+            >
+              <Copy className="mr-2 h-4 w-4" />
+              Copy code
+            </Button>
             <Button
               onClick={() => {
-                downloadCode()
-                setShowFrameworkDialog(false)
+                if (!generatedCode || !generatedFilename) return
+                const mime = generatedFilename.endsWith(".html")
+                  ? "text/html"
+                  : generatedFilename.endsWith(".astro")
+                    ? "text/plain"
+                    : "text/plain"
+                const flat = generatedFilename.replaceAll("/", "_")
+                createDownloadLink(generatedCode, flat, mime)
               }}
               disabled={!generatedCode}
             >
