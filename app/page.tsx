@@ -225,9 +225,34 @@ export default function SiteInspector() {
   const [generatedFilename, setGeneratedFilename] = useState<string>("")
   const [generatedCode, setGeneratedCode] = useState<string>("")
   const [showCodePreview, setShowCodePreview] = useState<boolean>(false)
+  const proposalUrlsSection1 = [
+  "cursor.com",
+  "framer.com",
+  "lovable.dev",
+  "linear.app",
+  "notion.com"
+];
+  
 
-  // Demo urls and cards
-  const proposalUrls = ["cosmos.so", "stripe.com", "linear.app"]
+  const proposalUrlsSection2 = [
+  { url: "playerzero.ai", image: existingImage1 },
+  { url: "apresentforce.com", image: existingImage2 },
+  {
+    url: "portfolite.framer.website",
+    image: "https://fra.cloud.appwrite.io/v1/storage/buckets/68968fe8001266b9f411/files/689e40cd000ed8efd26d/view?project=68802a5d00297352e520&mode=admin"
+  }
+];
+
+const [analysisStep, setAnalysisStep] = useState(0);
+const messages = [
+  "Starting analysis...",
+  "Extracting website design...",
+  "Collecting animations and assets...",
+  "Finalizing extraction...",
+  "All set! Preview your design below."
+];
+  
+
   const proposalUrlImages: Record<string, string> = {
     "cosmos.so":
       "https://fra.cloud.appwrite.io/v1/storage/buckets/68968fe8001266b9f411/files/68969cd6000b7adb25e0/view?project=68802a5d00297352e520&mode=admin",
@@ -1038,25 +1063,13 @@ ${result.fullHTML}
         {!loading && !result && (
           <div className="flex justify-center items-center gap-3 flex-wrap mb-6">
             <span className="text-sm text-gray-500">Try:</span>
-            {proposalUrls.map((pUrl) => (
+            {proposalUrlsSection1.map((pUrl) => (
               <button
                 key={pUrl}
                 onClick={() => handleProposalClick(pUrl)}
                 className="h-[30px] w-auto bg-[#FAFAFA] rounded-[12px] flex items-center px-2 transition-transform hover:scale-105"
               >
-                <img
-                  src={
-                    proposalUrlImages[pUrl] ||
-                    " /placeholder.svg?height=16&width=16&query=proposal%20preview%20thumbnail" ||
-                    "/placeholder.svg" ||
-                    "/placeholder.svg" ||
-                    "/placeholder.svg" ||
-                    "/placeholder.svg" ||
-                    "/placeholder.svg"
-                  }
-                  alt={`${pUrl} preview`}
-                  className="h-4 w-4 rounded-[4px] mr-2 object-cover"
-                />
+                
                 <Globe size={14} className="text-black mr-2" />
                 <p className="text-sm text-gray-700">{pUrl}</p>
                 <ArrowUp size={16} className="text-black ml-2" />
@@ -1064,12 +1077,18 @@ ${result.fullHTML}
             ))}
           </div>
         )}
+            {loading && !result && (
+      <div>
+      <motion.div key={analysisStep} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+  {messages[analysisStep]}
+</motion.div>
+      </div>
 
         {/* RESTORED: Proposal cards grid */}
         {!loading && !result && (
           <div className="flex justify-center">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-12">
-              {proposalUrls.map((pUrl) => (
+              {proposalUrlsSection2.map((pUrl) => (
                 <div
                   key={pUrl}
                   onClick={() => handleProposalClick(pUrl)}
