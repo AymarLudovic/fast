@@ -1069,7 +1069,7 @@ ${result.fullHTML}
                 onClick={() => handleProposalClick(pUrl)}
                 className="h-[30px] w-auto bg-[#FAFAFA] rounded-[12px] flex items-center px-2 transition-transform hover:scale-105"
               >
-                
+               
                 <Globe size={14} className="text-black mr-2" />
                 <p className="text-sm text-gray-700">{pUrl}</p>
                 <ArrowUp size={16} className="text-black ml-2" />
@@ -1083,7 +1083,8 @@ ${result.fullHTML}
   {messages[analysisStep]}
 </motion.div>
       </div>
-
+)}
+        {!loading && !result && <LogoMarquee />}
         {/* RESTORED: Proposal cards grid */}
         {!loading && !result && (
           <div className="flex justify-center">
@@ -1113,14 +1114,14 @@ ${result.fullHTML}
           </div>
         )}
 
-        {!loading && !result && <LogoMarquee />}
+        
 
         {error && <p className="text-red-600 bg-red-50 p-3 rounded-lg text-center mb-6">{error}</p>}
 
         {result && (
           <div className="space-y-12">
             <div>
-              <h3 className="text-2xl font-bold text-black mb-4">UI preview</h3>
+              <h3 className="text-2xl font-bold text-black mb-4">Extracted UI preview</h3>
               <iframe
                 title="UI preview"
                 className="w-full h-96 border border-gray-200 rounded-xl bg-white"
