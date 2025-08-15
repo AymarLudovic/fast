@@ -1061,7 +1061,7 @@ const createOptimizedPreview = () => {
               <Button
                 key={pUrl}
                 variant="outline"
-                className="h-[30px] rounded-[25px] w-auto  p-1 px-2 flex gap-1 justify-center items-center text-black bg-[#fafafa] transition-colors duration-200"
+                className="h-[25px] border border-[#fafafa] rounded-[25px] w-auto  p-[2px] px-2 flex gap-1 justify-center items-center text-black bg-[#fff] transition-colors duration-200"
                 onClick={() => handleProposalClick(pUrl)}
               >
                 <Globe size={16} color="#000" />
@@ -1086,7 +1086,7 @@ const createOptimizedPreview = () => {
                 {proposalUrlImages[pUrl] && (
                   <img src={proposalUrlImages[pUrl]} alt={pUrl} className="w-[90%] h-full object-contain" />
                 )}
-                <p className="text-sm absolute bottom-2 left-2 bg-transparent p-1 px-2 backdrop-blur-3xl sm:text-base font-medium truncate">{pUrl}</p>
+                <p className="text-sm absolute bottom-2 rounded-full left-2 bg-transparent p-[2px]  px-2 backdrop-blur-3xl sm:text-base font-medium truncate">{pUrl}</p>
               </Button>
             ))}
             </div>
