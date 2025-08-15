@@ -225,17 +225,20 @@ export default function SiteInspector() {
   const [generatedFilename, setGeneratedFilename] = useState<string>("")
   const [generatedCode, setGeneratedCode] = useState<string>("")
   const [showCodePreview, setShowCodePreview] = useState<boolean>(false)
+  const [analysisMessage, setAnalysisMessage] = useState("")
 
   // Demo urls and cards
-  const proposalUrls = ["cosmos.so", "stripe.com", "linear.app"]
+
+  // Demo urls and cards
+  const proposalUrlsSection1 = ["cursor.com", "framer.com", "lovable.dev", "linear.app", "notion.com"]
+  const proposalUrlsSection2 = ["playerzero.ai", "apresentforce.com", "portfolite.framer.website"]
   const proposalUrlImages: Record<string, string> = {
-    "cosmos.so":
-      "https://fra.cloud.appwrite.io/v1/storage/buckets/68968fe8001266b9f411/files/68969cd6000b7adb25e0/view?project=68802a5d00297352e520&mode=admin",
-    "stripe.com":
-      "https://fra.cloud.appwrite.io/v1/storage/buckets/68968fe8001266b9f411/files/68969d45000bcf13ad68/view?project=68802a5d00297352e520&mode=admin",
-    "linear.app":
-      "https://fra.cloud.appwrite.io/v1/storage/buckets/68968fe8001266b9f411/files/68969d55000989225796/view?project=68802a5d00297352e520&mode=admin",
+    "playerzero.ai": "https://fra.cloud.appwrite.io/v1/storage/buckets/68968fe8001266b9f411/files/68969cd6000b7adb25e0/view?project=68802a5d00297352e520&mode=admin",
+    "apresentforce.com": "https://fra.cloud.appwrite.io/v1/storage/buckets/68968fe8001266b9f411/files/68969d45000bcf13ad68/view?project=68802a5d00297352e520&mode=admin",
+    "portfolite.framer.website": "https://fra.cloud.appwrite.io/v1/storage/buckets/68968fe8001266b9f411/files/689e40cd000ed8efd26d/view?project=68802a5d00297352e520&mode=admin",
   }
+  
+  
 
   const createDownloadLink = (content: string, filename: string, mimeType: string) => {
     const blob = new Blob([content], { type: mimeType })
@@ -835,41 +838,6 @@ ${result.fullJS}
     setGeneratedCode(code)
   }, [selectedFramework, result])
 
-  const buildJsxPrompt = (): string => {
-    if (!result) return ""
-    const { filename, code } = gen("vite-react")
-    const libs =
-      result.requiredCdnUrls && result.requiredCdnUrls.length
-        ? `Detected external libraries (CDN):\n${result.requiredCdnUrls.join("\n")}\n\n`
-        : ""
-    return `You are given a complete, ready-to-use React JSX implementation. Use it EXACTLY as provided, with no changes or omissions. Only make surgical fixes if the compiler throws an error on specific lines while building; do not refactor, do not change structure or styling, and do not add or remove features.
-
-Project file to create: ${filename}
-
-${libs}Complete source code (paste as-is):
-\`\`\`jsx
-${code}
-\`\`\`
-
-Important:
-- Do NOT extract or separate HTML/CSS/JS. The code is already fully integrated in JSX.
-- Do NOT rewrite into a different framework.
-- If you encounter a compile/runtime error, fix only the minimal lines needed without changing the overall code.`
-  }
-
-  const handleCopyPrompt = () => {
-    if (!result) return
-    const prompt = buildJsxPrompt()
-    if (!prompt) return
-    copyToClipboard(prompt, "prompt")
-  }
-
-  const handleDownloadPrompt = () => {
-    if (!result) return
-    const prompt = buildJsxPrompt()
-    if (!prompt) return
-    createDownloadLink(prompt, "prompt-react-jsx.txt", "text/plain")
-  }
 
   const createOptimizedPreview = () => {
     if (!result) return ""
@@ -880,10 +848,70 @@ Important:
       .map((url) =>
         url.endsWith(".css")
           ? `    <link rel="stylesheet" href="${url}" crossorigin="anonymous">`
-          : `    <script src="${url}" crossorigin="anonymous"></script>`,
+          : `    <script src="${url}" crossorigin="anonymous"></scconst buildPrompt = (): string => {
+    if (!result) return ""
+
+    const libs = result.requiredCdnUrls && result.requiredCdnUrls.length
+      ? `\nDetected external libraries (CDN):\n${result.requiredCdnUrls.join("\n")}\n\n`
+      : "";
+
+    return `
+You are an expert AI developer specialized in integrating designs into web projects.
+Your task is to take the provided HTML, CSS, and JS code blocks and integrate them into a new project based on a user-chosen framework.
+You MUST follow these instructions precisely:
+
+1.  **Do NOT create a replica.** Your role is not to recreate the design from scratch. Your role is to perform a direct "copy-paste and adapt" operation.
+2.  **HTML:** Take the provided HTML code. Adapt it to the syntax of the chosen framework (e.g., JSX for React, template for Vue) while keeping its structure and all CSS class names absolutely intact. Do not change any class names, div structure, or element hierarchy.
+3.  **CSS:** Take the provided CSS code and place it in a dedicated CSS file. Ensure this CSS file is properly linked and accessible by the HTML component to load the design perfectly.
+4.  **JS:** Take the provided JavaScript code. For frameworks like React, encapsulate this JS code within a <script> tag or adapt it to JSX/TSX as needed to ensure all animations and dynamic functionalities are preserved.
+5.  **Libraries:** If external libraries (CDNs) are listed, ensure they are properly included in the project's head or body as required to support the design's animations and features.
+
+Here are the code blocks you need to integrate:
+${libs}
+
+**HTML Code:**
+\`\`\`html
+${result.fullHTML}
+\`\`\`
+
+**CSS Code:**
+\`\`\`css
+${result.fullCSS}
+\`\`\`
+
+**JS Code:**
+\`\`\`javascript
+${result.fullJS}
+\`\`\`
+
+IMPORTANT: Your only job is to integrate this code. Do NOT make any design or structural changes. Do NOT try to 'improve' or 're-factor' the code. Just copy, paste, and adapt it to the target framework, preserving the original design pixel-perfectly.
+`;
+  };
+
+
+  const handleCopyPrompt = () => {
+    if (!result) return
+    const prompt = buildPrompt()
+    if (!prompt) return
+    copyToClipboard(prompt, "prompt")
+  }
+
+  const handleDownloadPrompt = () => {
+    if (!result) return
+    const prompt = buildPrompt()
+    if (!prompt) return
+    createDownloadLink(prompt, "prompt.txt", "text/plain")
+  }
+
+const createOptimizedPreview = () => {
+    if (!result) return ""
+    const escapeForScript = (s: string) => s.replace(/<\/script>/gi, "<\\/script>")
+    const escapeForStyle = (s: string) => s.replace(/<\/style>/gi, "<\\/style>")
+    const cdnTags = result.requiredCdnUrls
+      .map((url) =>
+        url.endsWith(".css") ? ` <link rel="stylesheet" href="${url}" crossorigin="anonymous">` : ` <script src="${url}" crossorigin="anonymous"></script>`,
       )
       .join("\n")
-
     const animationCSSRaw = result.animationFiles
       .filter((f) => f.type === "css")
       .map((f) => f.content)
@@ -892,36 +920,15 @@ Important:
       .filter((f) => f.type === "js")
       .map((f) => f.content)
       .join("\n\n")
-
-    const animationInitScriptRaw = `async function initializeAnimations(){await new Promise(r=>setTimeout(r,2000));if(typeof gsap!=='undefined'){try{gsap.set("*",{clearProps:"all"});const E=document.querySelectorAll('h1,h2,h3,.hero,.title,[class*="fade"],[class*="slide"],[class*="animate"]');if(E.length>0){gsap.from(E,{opacity:0,y:50,duration:1,stagger:0.1,ease:"power2.out"})}if(typeof ScrollTrigger!=='undefined'){gsap.registerPlugin(ScrollTrigger);gsap.utils.toArray('[data-scroll], .scroll-trigger').forEach(el=>{gsap.from(el,{opacity:0,y:100,duration:1,scrollTrigger:{trigger:el,start:"top 80%",end:"bottom 20%",toggleActions:"play none none reverse"}})})}}catch(e){}}if(typeof THREE!=='undefined'){const canvas=document.querySelector('canvas')||document.querySelector('#three-canvas');if(canvas){try{const scene=new THREE.Scene();const camera=new THREE.PerspectiveCamera(75,canvas.clientWidth/canvas.clientHeight,0.1,1000);const renderer=new THREE.WebGLRenderer({canvas:canvas,alpha:true});renderer.setSize(canvas.clientWidth,canvas.clientHeight);const geometry=new THREE.BufferGeometry();const vertices=[];for(let i=0;i<1000;i++){vertices.push((Math.random()-0.5)*2000,(Math.random()-0.5)*2000,(Math.random()-0.5)*2000)}geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));const material=new THREE.PointsMaterial({color:0xffffff,size:2});const particles=new THREE.Points(geometry,material);scene.add(particles);camera.position.z=1000;function animate(){requestAnimationFrame(animate);particles.rotation.x+=0.001;particles.rotation.y+=0.001;renderer.render(scene,camera)}animate()}catch(e){}}}if(typeof AOS!=='undefined'){try{AOS.init({duration:1000,once:false,mirror:true,offset:100})}catch(e){}}if(typeof lottie!=='undefined'){try{document.querySelectorAll('[data-lottie], .lottie, [data-animation-path]').forEach(el=>{const path=el.dataset.lottie||el.dataset.animationPath;if(path){lottie.loadAnimation({container:el,renderer:'svg',loop:true,autoplay:true,path})}})}catch(e){}}}if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',initializeAnimations)}else{initializeAnimations()}`
+    const animationInitScriptRaw = `async function initializeAnimations(){await new Promise(r=>setTimeout(r,2000));if(typeof gsap!=='undefined'){try{gsap.set("*",{clearProps:"all"});const E=document.querySelectorAll('h1,h2,h3,.hero,.title,[class*="fade"],[class*="slide"],[class*="animate"]');if(E.length>0){gsap.from(E,{opacity:0,y:50,duration:1,stagger:0.1,ease:"power2.out"})}if(typeof ScrollTrigger!=='undefined'){gsap.registerPlugin(ScrollTrigger);gsap.utils.toArray('[data-scroll], .scroll-trigger').forEach(el=>{gsap.from(el,{opacity:0,y:100,duration:1,scrollTrigger:{trigger:el,start:"top 80%",end:"bottom 20%",toggleActions:"play none none reverse"}})})}}catch(e){}}if(typeof THREE!=='undefined'){const canvas=document.querySelector('canvas')||document.querySelector('#three-canvas');if(canvas){try{const scene=new THREE.Scene();const camera=new THREE.PerspectiveCamera(75,canvas.clientWidth/canvas.clientHeight,0.1,1000);const renderer=new THREE.WebGLRenderer({canvas:canvas,alpha:true});renderer.setSize(canvas.clientWidth,canvas.clientHeight);const geometry=new THREE.BufferGeometry();const vertices=[];for(let i=0;i<1000;i++){vertices.push((Math.random()-0.5)*2000,(Math.random()-0.5)*2000,(Math.random()-0.5)*2000)}geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));const material=new THREE.PointsMaterial({color:0xffffff,size:2});const particles=new THREE.Points(geometry,material);scene.add(particles);camera.position.z=1000;function animate(){requestAnimationFrame(animate);particles.rotation.x+=0.001;particles.rotation.y+=0.001;renderer.render(scene,camera)}animate()}catch(e){}}}if(typeof AOS!=='undefined'){try{AOS.init({duration:1000,once:false,mirror:true,offset:100})}catch(e){}}if(typeof lottie!=='undefined'){try{document.querySelectorAll('[data-lottie], .lottie, [data-animation-path]').forEach(el=>{const path=el.dataset.lottie||el.dataset.animation-path;if(path){lottie.loadAnimation({container:el,renderer:'svg',loop:true,autoplay:true,path})}})}catch(e){}}}if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',initializeAnimations)}else{initializeAnimations()}`
     const safeAnimationCSS = escapeForStyle(animationCSSRaw)
     const safeFullCSS = escapeForStyle(result.fullCSS)
     const safeAnimationJS = escapeForScript(animationJSRaw)
     const safeInitScript = escapeForScript(animationInitScriptRaw)
     const safeFullJS = escapeForScript(result.fullJS)
-
-    const previewHtml = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <base href="${result.baseURL}">
-  <title>UI preview</title>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-${cdnTags}
-  <style id="animation-styles">
-${safeAnimationCSS}
-  </style>
-  <style id="regular-styles">
-${safeFullCSS}
-  </style>
-</head>
-<body>
-${result.fullHTML}
-<script>${safeInitScript}</script>
-<script>${safeAnimationJS}</script>
-<script>${safeFullJS}</script>
-</body></html>`
+    const previewHtml = `<!DOCTYPE html> <html lang="en"> <head> <base href="${result.baseURL}"> <title>Extracted design preview</title> <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"> ${cdnTags} <style id="animation-styles"> ${safeAnimationCSS} </style> <style id="regular-styles"> ${safeFullCSS} </style> </head> <body> ${result.fullHTML} <script>${safeInitScript}</script> <script>${safeAnimationJS}</script> <script>${safeFullJS}</script> </body></html>`
     return previewHtml
-  }
+      }
 
   const HeaderAction = () => {
     if (!isAuthReady) return null
@@ -1033,34 +1040,41 @@ ${result.fullHTML}
             </button>
           </div>
         </div>
+{loading && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-4 text-center text-sm text-gray-500"
+          >
+            <motion.p
+              key={analysisMessage}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5 }}
+            >
+              {analysisMessage}
+            </motion.p>
+          </motion.div>
+        )}
 
+        {error && (
+          <div className="mt-4 text-center text-sm text-red-500">
+            <p>{error}</p>
+          </div>
+        )}
         {/* Try chips */}
         {!loading && !result && (
           <div className="flex justify-center items-center gap-3 flex-wrap mb-6">
             <span className="text-sm text-gray-500">Try:</span>
-            {proposalUrls.map((pUrl) => (
-              <button
+            {proposalUrlsSection1.map((pUrl) => (
+              <Button
                 key={pUrl}
+                variant="outline"
+                className="h-auto p-4 flex flex-col justify-center items-center text-black bg-white rounded-xl hover:bg-gray-100 transition-colors duration-200"
                 onClick={() => handleProposalClick(pUrl)}
-                className="h-[30px] w-auto bg-[#FAFAFA] rounded-[12px] flex items-center px-2 transition-transform hover:scale-105"
               >
-                <img
-                  src={
-                    proposalUrlImages[pUrl] ||
-                    " /placeholder.svg?height=16&width=16&query=proposal%20preview%20thumbnail" ||
-                    "/placeholder.svg" ||
-                    "/placeholder.svg" ||
-                    "/placeholder.svg" ||
-                    "/placeholder.svg" ||
-                    "/placeholder.svg"
-                  }
-                  alt={`${pUrl} preview`}
-                  className="h-4 w-4 rounded-[4px] mr-2 object-cover"
-                />
-                <Globe size={14} className="text-black mr-2" />
-                <p className="text-sm text-gray-700">{pUrl}</p>
-                <ArrowUp size={16} className="text-black ml-2" />
-              </button>
+                <p className="text-sm sm:text-base font-medium truncate">{pUrl}</p>
+              </Button>
             ))}
           </div>
         )}
@@ -1069,27 +1083,19 @@ ${result.fullHTML}
         {!loading && !result && (
           <div className="flex justify-center">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-12">
-              {proposalUrls.map((pUrl) => (
-                <div
-                  key={pUrl}
-                  onClick={() => handleProposalClick(pUrl)}
-                  className="h-[300px] w-[300px] flex items-center border border-[#eee] rounded-[10px] relative cursor-pointer overflow-hidden bg-white"
-                >
-                  <img
-                    className="h-full w-full object-contain"
-                    src={
-                      proposalUrlImages[pUrl] || "/placeholder.svg?height=300&width=300&query=site%20image%20preview"
-                    }
-                    alt={`${pUrl} site image`}
-                  />
-                  <div className="absolute bottom-1 left-1 z-[1]">
-                    <button className="w-auto backdrop-blur-3xl rounded-[12px] flex items-center px-2 transition-transform hover:scale-105 bg-white/70">
-                      <p className="text-[10px] text-black font-semibold">{pUrl}</p>
-                      <ArrowUp size={16} className="text-black ml-2" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+              {proposalUrlsSection2.map((pUrl) => (
+              <Button
+                key={pUrl}
+                variant="outline"
+                className="h-auto p-4 flex flex-col justify-center items-center text-black bg-white rounded-xl hover:bg-gray-100 transition-colors duration-200"
+                onClick={() => handleProposalClick(pUrl)}
+              >
+                {proposalUrlImages[pUrl] && (
+                  <img src={proposalUrlImages[pUrl]} alt={pUrl} className="w-full h-auto rounded-lg mb-2" />
+                )}
+                <p className="text-sm sm:text-base font-medium truncate">{pUrl}</p>
+              </Button>
+            ))}
             </div>
           </div>
         )}
@@ -1123,7 +1129,7 @@ ${result.fullHTML}
                 className="h-[38px] rounded-[12px] text-sm font-medium px-4"
               >
                 <Copy className="mr-2 h-4 w-4" />
-                Copy JSX prompt
+                Copy prompt
               </Button>
             </div>
             <div className="h-[40px] w-auto flex items-center rounded-[14px] bg-white shadow-md border border-[#e5e5e5]">
