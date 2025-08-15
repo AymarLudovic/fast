@@ -1061,11 +1061,11 @@ const createOptimizedPreview = () => {
               <Button
                 key={pUrl}
                 variant="outline"
-                className="h-[25px] border border-[#fafafa] rounded-[25px] w-auto  p-[2px] px-2 flex gap-1 justify-center items-center text-black bg-[#fff] transition-colors duration-200"
+                className="h-[25px] border border-[#fafafa] rounded-[25px] w-auto  p-[2px] px-2 flex gap-1 justify-center items-center text-black bg-[#fff]"
                 onClick={() => handleProposalClick(pUrl)}
               >
                 <Globe size={16} color="#000" />
-                <p className="text-sm sm:text-base font-medium truncate">{pUrl}</p>
+                <p className="text-sm font-medium ">{pUrl}</p>
                 <ArrowUp size={16} color="#000" />
               </Button>
             ))}
