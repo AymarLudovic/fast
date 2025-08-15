@@ -1061,10 +1061,12 @@ const createOptimizedPreview = () => {
               <Button
                 key={pUrl}
                 variant="outline"
-                className="h-auto p-4 flex flex-col justify-center items-center text-black bg-white rounded-xl hover:bg-gray-100 transition-colors duration-200"
+                className="h-[30px] rounded-[25px] w-auto  p-1 px-2 flex gap-1 justify-center items-center text-black bg-[#fafafa] transition-colors duration-200"
                 onClick={() => handleProposalClick(pUrl)}
               >
+                <Globe size={16} color="#000" />
                 <p className="text-sm sm:text-base font-medium truncate">{pUrl}</p>
+                <ArrowUp size={16} color="#000" />
               </Button>
             ))}
           </div>
@@ -1078,13 +1080,13 @@ const createOptimizedPreview = () => {
               <Button
                 key={pUrl}
                 variant="outline"
-                className="h-auto p-4 flex flex-col justify-center items-center text-black bg-white rounded-xl hover:bg-gray-100 transition-colors duration-200"
+                className="h-[300px] w-[300px] relative flex flex-col justify-center items-center text-black bg-white rounded-xl  transition-colors duration-200"
                 onClick={() => handleProposalClick(pUrl)}
               >
                 {proposalUrlImages[pUrl] && (
-                  <img src={proposalUrlImages[pUrl]} alt={pUrl} className="w-full h-auto rounded-lg mb-2" />
+                  <img src={proposalUrlImages[pUrl]} alt={pUrl} className="w-[90%] h-full object-contain" />
                 )}
-                <p className="text-sm sm:text-base font-medium truncate">{pUrl}</p>
+                <p className="text-sm absolute bottom-2 left-2 bg-transparent p-1 px-2 backdrop-blur-3xl sm:text-base font-medium truncate">{pUrl}</p>
               </Button>
             ))}
             </div>
