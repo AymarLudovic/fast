@@ -838,17 +838,7 @@ ${result.fullJS}
     setGeneratedCode(code)
   }, [selectedFramework, result])
 
-
-  const createOptimizedPreview = () => {
-    if (!result) return ""
-    const escapeForScript = (s: string) => s.replace(/<\/script>/gi, "<\\/script>")
-    const escapeForStyle = (s: string) => s.replace(/<\/style>/gi, "<\\/style>")
-
-    const cdnTags = result.requiredCdnUrls
-      .map((url) =>
-        url.endsWith(".css")
-          ? `    <link rel="stylesheet" href="${url}" crossorigin="anonymous">`
-          : `    <script src="${url}" crossorigin="anonymous"></scconst buildPrompt = (): string => {
+const buildPrompt = (): string => {
     if (!result) return ""
 
     const libs = result.requiredCdnUrls && result.requiredCdnUrls.length
@@ -887,6 +877,7 @@ ${result.fullJS}
 IMPORTANT: Your only job is to integrate this code. Do NOT make any design or structural changes. Do NOT try to 'improve' or 're-factor' the code. Just copy, paste, and adapt it to the target framework, preserving the original design pixel-perfectly.
 `;
   };
+  
 
 
   const handleCopyPrompt = () => {
