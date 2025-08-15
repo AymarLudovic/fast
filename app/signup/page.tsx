@@ -54,7 +54,8 @@ export default function SignupPage() {
     addLog("✅ Client Appwrite configuré")
 
     const expirationDate = new Date()
-    expirationDate.setMinutes(expirationDate.getMinutes() + 3)
+    // Modification pour passer de 3 minutes à 3 jours
+    expirationDate.setDate(expirationDate.getDate() + 3)
 
     const documentData = {
       userId: userId,
@@ -85,7 +86,6 @@ export default function SignupPage() {
       addLog(`👤 User ID: ${userCredential.user.uid}`)
       addLog(`📧 Email: ${userCredential.user.email}`)
 
-      // Check if this is a new user by trying to create subscription
       try {
         await createAppwriteSubscription(userCredential.user.uid)
         addLog("🆕 Nouvel utilisateur - abonnement créé")
@@ -143,7 +143,6 @@ export default function SignupPage() {
       addLog(`🚀 Début ${mode === "login" ? "connexion" : "inscription"}`)
       addLog(`📧 Email: ${email}`)
 
-      // Firebase Auth
       addLog("🔥 Tentative authentification Firebase...")
       let userCredential
 
@@ -173,7 +172,8 @@ export default function SignupPage() {
   if (mode === "reset") {
     return (
       <main className="min-h-screen bg-white flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
+        {/* Suppression de la bordure et de l'ombre de la Card */}
+        <Card className="w-full max-w-md border-none shadow-none">
           <CardHeader>
             <CardTitle>Reset your password</CardTitle>
             <CardDescription>
@@ -212,12 +212,13 @@ export default function SignupPage() {
 
   return (
     <main className="min-h-screen bg-white flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+      {/* Suppression de la bordure et de l'ombre de la Card */}
+      <Card className="w-full max-w-md border-none shadow-none">
         <CardHeader>
           <CardTitle>{mode === "signup" ? "Create your account" : "Welcome back"}</CardTitle>
           <CardDescription>
             {mode === "signup"
-              ? "Sign up with email and password. A 3-minute trial starts immediately."
+              ? "Sign up with email and password. A 3-day trial starts immediately."
               : "Log in with your email and password."}
           </CardDescription>
         </CardHeader>
@@ -336,4 +337,5 @@ export default function SignupPage() {
       </Card>
     </main>
   )
-}
+                                  }
+      
