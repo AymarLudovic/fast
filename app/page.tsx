@@ -610,11 +610,7 @@ ${cssBlock}
 
 ---
 
-**3. Code JavaScript (Animations prioritaires)**
-*La logique des animations est ici. Assurez-vous que ce script est exécuté.*
-\`\`\`javascript
-${jsBlock}
-\`\`\`
+
 
 **Votre tâche :** En utilisant ces trois blocs de code concis, recréez une page fonctionnelle dans le framework choisi par l'utilisateur. Le but est d'obtenir une réplique visuelle parfaite, en particulier au niveau des animations.
 `
