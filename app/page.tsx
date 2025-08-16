@@ -276,7 +276,7 @@ export default function SiteInspector() {
     setAiGeneratedFiles({ html: '', css: '', js: '' });
   
     const GEMINI_API_KEY = "AIzaSyDQRPehpA6TVODVOcofx7NCQr7vhTnk6zM"; // N'oubliez pas de gérer cette clé de manière sécurisée
-    const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+    const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
   
     const requestBody = {
       contents: [
