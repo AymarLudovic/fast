@@ -279,7 +279,7 @@ export default function SiteInspector() {
         const ai = new GoogleGenerativeAI({ apiKey: GEMINI_API_KEY });
         const tools: Tool[] = [{ googleSearch: {} }];
         const config: GenerationConfig = { };
-        const model = 'gemini-1.5-flash-latest'; // Utilisation de Flash, comme demandé
+        const model = 'gemini-2.5-flash'; // Utilisation de Flash, comme demandé
         const contents = [{ role: 'user', parts: [{ text: buildInitialPromptForAI() }] }];
 
         const generativeModel = ai.getGenerativeModel({ model, tools });
