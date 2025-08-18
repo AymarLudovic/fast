@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Globe, ArrowUp, Copy, Download, LogOut } from "lucide-react"
+import { Globe, ArrowUp, Copy, Download, LogOut, MessageSquare } from "lucide-react"
 import { motion, useReducedMotion } from "framer-motion"
 import { Bodoni_Moda } from "next/font/google"
 import {
@@ -150,6 +150,13 @@ const firebaseConfig = {
   measurementId: "G-K5GHCYGF3E",
 }
 
+type ChatMessage = {
+  id: string
+  role: "user" | "assistant"
+  content: string
+  timestamp: Date
+}
+
 export default function SiteInspector() {
   const router = useRouter()
 
@@ -159,7 +166,7 @@ export default function SiteInspector() {
   const [subscription, setSubscription] = useState<any>(null)
   const [subscriptionLoading, setSubscriptionLoading] = useState(false)
 
-  const [chatMessages, setChatMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([])
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [chatInput, setChatInput] = useState("")
   const [chatLoading, setChatLoading] = useState(false)
   const [generatedFiles, setGeneratedFiles] = useState<{ html: string; css: string; js: string } | null>(null)
@@ -966,40 +973,78 @@ ${result.fullJS}
     setGeneratedCode(code)
   }, [selectedFramework, result])
 
-  const buildJsxPrompt = (): string => {
+  const buildSeparateFilesPrompt = (): string => {
     if (!result) return ""
-    const { filename, code } = gen("vite-react")
+
     const libs =
       result.requiredCdnUrls && result.requiredCdnUrls.length
         ? `Detected external libraries (CDN):\n${result.requiredCdnUrls.join("\n")}\n\n`
         : ""
-    return `You are given a complete, ready-to-use React JSX implementation. Use it EXACTLY as provided, with no changes or omissions. Only make surgical fixes if the compiler throws an error on specific lines while building; do not refactor, do not change structure or styling, and do not add or remove features.
 
-Project file to create: ${filename}
+    return `You are given extracted HTML, CSS, and JavaScript files from a website design. Your task is to COPY-PASTE these files exactly as provided and adapt them to your chosen framework while preserving ALL classes, structure, and functionality.
 
-${libs}Complete source code (paste as-is):
-\`\`\`jsx
-${code}
+IMPORTANT INSTRUCTIONS:
+- DO NOT create replicas or approximations
+- DO NOT modify the HTML structure or CSS classes
+- COPY the HTML exactly and adapt it to your framework's syntax
+- COPY the CSS exactly into a separate stylesheet
+- COPY the JavaScript exactly and integrate it properly
+- Preserve every class name, every div structure, every animation
+
+${libs}HTML FILE (copy structure exactly):
+\`\`\`html
+${result.fullHTML}
 \`\`\`
 
-Important:
-- Do NOT extract or separate HTML/CSS/JS. The code is already fully integrated in JSX.
-- Do NOT rewrite into a different framework.
-- If you encounter a compile/runtime error, fix only the minimal lines needed without changing the overall code.`
+CSS FILE (copy all styles exactly):
+\`\`\`css
+${result.fullCSS}
+\`\`\`
+
+JAVASCRIPT FILE (copy all functionality exactly):
+\`\`\`javascript
+${result.fullJS}
+\`\`\`
+
+Your job: Copy-paste and adapt these three files to your framework while keeping every class, every structure, and every animation intact.`
   }
 
   const handleCopyPrompt = () => {
     if (!result) return
-    const prompt = buildJsxPrompt()
+    const prompt = buildSeparateFilesPrompt()
     if (!prompt) return
     copyToClipboard(prompt, "prompt")
   }
 
   const handleDownloadPrompt = () => {
     if (!result) return
-    const prompt = buildJsxPrompt()
+    const prompt = buildSeparateFilesPrompt()
     if (!prompt) return
-    createDownloadLink(prompt, "prompt-react-jsx.txt", "text/plain")
+    createDownloadLink(prompt, "prompt-html-css-js.txt", "text/plain")
+  }
+
+  const handlePastePromptToAI = () => {
+    if (!result) return
+    const prompt = buildSeparateFilesPrompt()
+    if (!prompt) return
+
+    // Add the prompt as a user message to the chat
+    const newMessage: ChatMessage = {
+      id: Date.now().toString(),
+      role: "user",
+      content: prompt,
+      timestamp: new Date(),
+    }
+
+    setChatMessages((prev) => [...prev, newMessage])
+
+    // Auto-send to AI
+    const handleSendMessage = async (prompt: string) => {
+      setChatInput(prompt)
+      await handleChatSubmit({ preventDefault: () => {} } as any)
+    }
+
+    handleSendMessage(prompt)
   }
 
   const createOptimizedPreview = () => {
@@ -1184,6 +1229,7 @@ ${result.fullHTML}
                     "/placeholder.svg" ||
                     "/placeholder.svg" ||
                     "/placeholder.svg" ||
+                    "/placeholder.svg" ||
                     "/placeholder.svg"
                   }
                   alt={`${pUrl} preview`}
@@ -1348,24 +1394,22 @@ ${result.fullHTML}
       {result && (
         <div className="fixed bottom-0 left-0 right-0 p-4 flex justify-center">
           <div className="flex items-center gap-3">
-            <div className="h-[40px] w-auto flex items-center rounded-[14px] bg-white shadow-md border border-[#e5e5e5]">
-              <Button
-                onClick={handleCopyPrompt}
-                variant="ghost"
-                className="h-[38px] rounded-[12px] text-sm font-medium px-4"
-              >
-                <Copy className="mr-2 h-4 w-4" />
-                Copy JSX prompt
+            <div className="flex gap-2 flex-wrap">
+              <Button onClick={handleCopyPrompt} className="bg-blue-600 hover:bg-blue-700 text-white">
+                <Copy className="w-4 h-4 mr-2" />
+                Copy HTML/CSS/JS Prompt
               </Button>
-            </div>
-            <div className="h-[40px] w-auto flex items-center rounded-[14px] bg-white shadow-md border border-[#e5e5e5]">
               <Button
                 onClick={handleDownloadPrompt}
-                variant="ghost"
-                className="h-[38px] rounded-[12px] text-sm font-medium px-4"
+                variant="outline"
+                className="border-blue-600 text-blue-600 hover:bg-blue-50 bg-transparent"
               >
-                <Download className="mr-2 h-4 w-4" />
-                Download prompt
+                <Download className="w-4 h-4 mr-2" />
+                Download Prompt
+              </Button>
+              <Button onClick={handlePastePromptToAI} className="bg-green-600 hover:bg-green-700 text-white">
+                <MessageSquare className="w-4 h-4 mr-2" />
+                Paste Prompt to AI
               </Button>
             </div>
             <div className="h-[40px] w-auto flex items-center rounded-[14px] bg-white shadow-md border border-[#e5e5e5]">
